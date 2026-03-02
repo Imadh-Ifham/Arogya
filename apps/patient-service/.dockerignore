@@ -1,0 +1,29 @@
+﻿# Maven build output
+target/
+*.class
+
+# Environment files
+.env
+.env.local
+
+# IDE / Editor
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Test reports
+surefire-reports/
+
+# Logs
+logs/
+*.log

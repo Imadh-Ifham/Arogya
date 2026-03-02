@@ -1,0 +1,354 @@
+# =============================================================================
+# Arogya - Docker Compose Development Environment
+# =============================================================================
+# Usage:
+#   Start:  docker compose -f infrastructure/docker/docker-compose.dev.yml up -d
+#   Stop:   docker compose -f infrastructure/docker/docker-compose.dev.yml down
+#   Reset:  docker compose -f infrastructure/docker/docker-compose.dev.yml down -v
+#
+# Or use the Makefile shortcuts:
+#   make dev    — start all infrastructure
+#   make down   — stop all
+#   make reset  — stop and remove all volumes
+# =============================================================================
+
+version: "3.9"
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+networks:
+  arogya-net:
+    driver: bridge
+    name: arogya-net
+
+# ---------------------------------------------------------------------------
+# Volumes (persistent data)
+# ---------------------------------------------------------------------------
+volumes:
+  postgres-data:
+    name: arogya-postgres-data
+  mongodb-data:
+    name: arogya-mongodb-data
+  kafka-data:
+    name: arogya-kafka-data
+  zookeeper-data:
+    name: arogya-zookeeper-data
+  zookeeper-log:
+    name: arogya-zookeeper-log
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+  # -------------------------------------------------------------------------
+  # PostgreSQL — Relational data store
+  # Internal hostname: postgres
+  # Connection string: jdbc:postgresql://postgres:5432/<db_name>
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: arogya-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: arogya
+      POSTGRES_PASSWORD: arogya_secret
+      POSTGRES_MULTIPLE_DATABASES: arogya_users,arogya_appointments,arogya_prescriptions
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Optional: mount an init script to create multiple databases
+      # - ./postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+    ports:
+      - "5432:5432"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arogya"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # -------------------------------------------------------------------------
+  # MongoDB — Document store (prescriptions, telemedicine session data)
+  # Internal hostname: mongodb
+  # Connection string: mongodb://mongodb:27017/<db_name>
+  # -------------------------------------------------------------------------
+  mongodb:
+    image: mongo:7.0
+    container_name: arogya-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: arogya
+      MONGO_INITDB_ROOT_PASSWORD: arogya_secret
+    volumes:
+      - mongodb-data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - arogya-net
+    healthcheck:
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # -------------------------------------------------------------------------
+  # Zookeeper — Required by Kafka for broker coordination
+  # -------------------------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: arogya-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    ports:
+      - "2181:2181"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # -------------------------------------------------------------------------
+  # Kafka — Message broker (single node dev configuration)
+  # Internal hostname: kafka
+  # Bootstrap server (inside docker network): kafka:9092
+  # Bootstrap server (from host machine):     localhost:9093
+  # -------------------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: arogya-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Listener for internal docker network (service-to-service)
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9093
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # Topic settings
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    ports:
+      - "9093:9093"
+    networks:
+      - arogya-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:9092",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # -------------------------------------------------------------------------
+  # Kafka UI — Web interface for browsing topics, messages, and consumers
+  # Access at: http://localhost:8090
+  # -------------------------------------------------------------------------
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: arogya-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: arogya-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      AUTH_TYPE: disabled
+    ports:
+      - "8090:8080"
+    networks:
+      - arogya-net
+
+  # ===========================================================================
+  # APPLICATION SERVICES
+  # Uncomment each block individually as you implement the service.
+  # Make sure to build the Docker image first:
+  #   docker build -t arogya/<service-name>:latest apps/<service-name>/
+  # ===========================================================================
+
+  # -------------------------------------------------------------------------
+  # API Gateway — Port 8080
+  # Uncomment when apps/api-gateway/ has a working Dockerfile and src/
+  # -------------------------------------------------------------------------
+  # api-gateway:
+  #   image: arogya/api-gateway:latest
+  #   container_name: arogya-api-gateway
+  #   restart: unless-stopped
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   environment:
+  #     PORT: 8080
+  #     NODE_ENV: production
+  #     USER_SERVICE_URL: http://user-service:8081
+  #     APPOINTMENT_SERVICE_URL: http://appointment-service:8082
+  #     PRESCRIPTION_SERVICE_URL: http://prescription-service:8083
+  #     TELEMEDICINE_SERVICE_URL: http://telemedicine-service:8084
+  #     NOTIFICATION_SERVICE_URL: http://notification-service:8085
+  #     KAFKA_BROKER: kafka:9092
+  #   ports:
+  #     - "8080:8080"
+  #   networks:
+  #     - arogya-net
+
+  # -------------------------------------------------------------------------
+  # User Service — Port 8081
+  # Uncomment when apps/user-service/ has a working Dockerfile and src/
+  # -------------------------------------------------------------------------
+  # user-service:
+  #   image: arogya/user-service:latest
+  #   container_name: arogya-user-service
+  #   restart: unless-stopped
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #   environment:
+  #     SERVER_PORT: 8081
+  #     SPRING_PROFILES_ACTIVE: docker
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/arogya_users
+  #     SPRING_DATASOURCE_USERNAME: arogya
+  #     SPRING_DATASOURCE_PASSWORD: arogya_secret
+  #     SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  #     JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
+  #   ports:
+  #     - "8081:8081"
+  #   networks:
+  #     - arogya-net
+
+  # -------------------------------------------------------------------------
+  # Appointment Service — Port 8082
+  # Uncomment when apps/appointment-service/ has a working Dockerfile and src/
+  # -------------------------------------------------------------------------
+  # appointment-service:
+  #   image: arogya/appointment-service:latest
+  #   container_name: arogya-appointment-service
+  #   restart: unless-stopped
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #   environment:
+  #     SERVER_PORT: 8082
+  #     SPRING_PROFILES_ACTIVE: docker
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/arogya_appointments
+  #     SPRING_DATASOURCE_USERNAME: arogya
+  #     SPRING_DATASOURCE_PASSWORD: arogya_secret
+  #     SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  #     KAFKA_TOPIC_APPOINTMENT_CREATED: appointment.created
+  #   ports:
+  #     - "8082:8082"
+  #   networks:
+  #     - arogya-net
+
+  # -------------------------------------------------------------------------
+  # Prescription Service — Port 8083
+  # Uncomment when apps/prescription-service/ has a working Dockerfile and src/
+  # -------------------------------------------------------------------------
+  # prescription-service:
+  #   image: arogya/prescription-service:latest
+  #   container_name: arogya-prescription-service
+  #   restart: unless-stopped
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     mongodb:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #   environment:
+  #     SERVER_PORT: 8083
+  #     SPRING_PROFILES_ACTIVE: docker
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/arogya_prescriptions
+  #     SPRING_DATASOURCE_USERNAME: arogya
+  #     SPRING_DATASOURCE_PASSWORD: arogya_secret
+  #     SPRING_DATA_MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_prescriptions?authSource=admin
+  #     SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  #     KAFKA_TOPIC_PRESCRIPTION_ISSUED: prescription.issued
+  #   ports:
+  #     - "8083:8083"
+  #   networks:
+  #     - arogya-net
+
+  # -------------------------------------------------------------------------
+  # Telemedicine Service — Port 8084
+  # Uncomment when apps/telemedicine-service/ has a working Dockerfile and src/
+  # -------------------------------------------------------------------------
+  # telemedicine-service:
+  #   image: arogya/telemedicine-service:latest
+  #   container_name: arogya-telemedicine-service
+  #   restart: unless-stopped
+  #   depends_on:
+  #     mongodb:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #   environment:
+  #     PORT: 8084
+  #     NODE_ENV: production
+  #     KAFKA_BROKER: kafka:9092
+  #     KAFKA_GROUP_ID: telemedicine-group
+  #     KAFKA_TOPIC_CONSULTATION_STARTED: consultation.started
+  #     MONGO_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_telemedicine?authSource=admin
+  #   ports:
+  #     - "8084:8084"
+  #   networks:
+  #     - arogya-net
+
+  # -------------------------------------------------------------------------
+  # Notification Service — Port 8085
+  # Uncomment when apps/notification-service/ has a working Dockerfile and src/
+  # -------------------------------------------------------------------------
+  # notification-service:
+  #   image: arogya/notification-service:latest
+  #   container_name: arogya-notification-service
+  #   restart: unless-stopped
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   environment:
+  #     PORT: 8085
+  #     NODE_ENV: production
+  #     KAFKA_BROKER: kafka:9092
+  #     KAFKA_GROUP_ID: notification-group
+  #     KAFKA_TOPICS: appointment.created,prescription.issued,consultation.started
+  #     SMTP_HOST: smtp.example.com
+  #     SMTP_PORT: 587
+  #     SMTP_USER: notifications@arogya.health
+  #     SMTP_PASS: changeme
+  #   ports:
+  #     - "8085:8085"
+  #   networks:
+  #     - arogya-net

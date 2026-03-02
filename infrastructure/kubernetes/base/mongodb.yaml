@@ -1,0 +1,144 @@
+---
+# =============================================================================
+# Arogya — MongoDB Kubernetes Manifests
+# Namespace: arogya
+# Internal hostname: mongodb
+# Connection: mongodb:27017
+# =============================================================================
+# Apply:  kubectl apply -f infrastructure/kubernetes/base/mongodb.yaml
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Persistent Volume Claim
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+  namespace: arogya
+  labels:
+    app: mongodb
+    app.kubernetes.io/part-of: arogya-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# ---------------------------------------------------------------------------
+# MongoDB Secret — credentials
+# NOTE: In production, use sealed-secrets or an external vault.
+#       These are base64-encoded values of "arogya" and "arogya_secret".
+#       arogya        -> YXJvZ3lh
+#       arogya_secret -> YXJvZ3lhX3NlY3JldA==
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-secret
+  namespace: arogya
+  labels:
+    app: mongodb
+type: Opaque
+data:
+  MONGO_INITDB_ROOT_USERNAME: YXJvZ3lh
+  MONGO_INITDB_ROOT_PASSWORD: YXJvZ3lhX3NlY3JldA==
+
+---
+# ---------------------------------------------------------------------------
+# MongoDB Deployment
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+  namespace: arogya
+  labels:
+    app: mongodb
+    app.kubernetes.io/part-of: arogya-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:7.0
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGO_INITDB_ROOT_USERNAME
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGO_INITDB_ROOT_PASSWORD
+          volumeMounts:
+            - name: mongodb-storage
+              mountPath: /data/db
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - "--quiet"
+                - "--eval"
+                - "db.adminCommand('ping').ok"
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command:
+                - mongosh
+                - "--quiet"
+                - "--eval"
+                - "db.adminCommand('ping').ok"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+      volumes:
+        - name: mongodb-storage
+          persistentVolumeClaim:
+            claimName: mongodb-pvc
+
+---
+# ---------------------------------------------------------------------------
+# MongoDB Service
+# Internal address: mongodb:27017
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: arogya
+  labels:
+    app: mongodb
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - name: mongodb
+      protocol: TCP
+      port: 27017
+      targetPort: 27017
+  type: ClusterIP

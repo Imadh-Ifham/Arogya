@@ -1,0 +1,138 @@
+---
+# =============================================================================
+# Arogya — PostgreSQL Kubernetes Manifests
+# Namespace: arogya
+# Internal hostname: postgres
+# Connection: postgres:5432
+# =============================================================================
+# Apply:  kubectl apply -f infrastructure/kubernetes/base/postgres.yaml
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Persistent Volume Claim
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: arogya
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: arogya-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# ---------------------------------------------------------------------------
+# PostgreSQL Secret — credentials
+# NOTE: In production, use sealed-secrets or an external vault.
+#       These are base64-encoded values of "arogya" and "arogya_secret".
+#       arogya        -> YXJvZ3lh
+#       arogya_secret -> YXJvZ3lhX3NlY3JldA==
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: arogya
+  labels:
+    app: postgres
+type: Opaque
+data:
+  POSTGRES_USER: YXJvZ3lh
+  POSTGRES_PASSWORD: YXJvZ3lhX3NlY3JldA==
+
+---
+# ---------------------------------------------------------------------------
+# PostgreSQL Deployment
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: arogya
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: arogya-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              value: arogya
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "arogya"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "arogya"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+
+---
+# ---------------------------------------------------------------------------
+# PostgreSQL Service
+# Internal address: postgres:5432
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: arogya
+  labels:
+    app: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP
