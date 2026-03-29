@@ -17,11 +17,11 @@ for (const varName of requiredVars) {
 export const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: parseInt(process.env.PORT || "3001", 10),
-  mongodbUri: process.env.MONGODB_URI,
+  mongodbUri: process.env.MONGODB_URI!,
   jwt: {
-    secret: process.env.JWT_SECRET,
+    secret: process.env.JWT_SECRET!,
     expiresIn: process.env.JWT_EXPIRES_IN || "15m",
-    refreshSecret: process.env.JWT_REFRESH_SECRET,
+    refreshSecret: process.env.JWT_REFRESH_SECRET!,
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   },
   bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || "12", 10),
