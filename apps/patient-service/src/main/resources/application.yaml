@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/arogya_patients}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/arogya_patients}
     username: ${SPRING_DATASOURCE_USERNAME:arogya}
     password: ${SPRING_DATASOURCE_PASSWORD:arogya_secret}
 
