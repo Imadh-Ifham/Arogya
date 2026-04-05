@@ -5,6 +5,13 @@
 # WARNING: All database data will be permanently deleted.
 # =============================================================================
 # Usage: bash scripts/reset-dev.sh
+# What this script runs:
+#   1. docker compose -f infrastructure/docker/docker-compose.dev.yml -p arogya down --remove-orphans
+#   2. docker volume rm arogya-postgres-data arogya-mongodb-data arogya-kafka-data \
+#        arogya-zookeeper-data arogya-zookeeper-log
+#   3. docker image prune -f --filter "label=com.docker.compose.project=arogya"
+# Notes:
+#   - This is destructive and deletes persisted dev data.
 # =============================================================================
 
 set -euo pipefail
@@ -44,9 +51,14 @@ fi
 
 echo ""
 log_info "Stopping and removing all containers..."
+# Exact command:
+# docker compose -f "${COMPOSE_FILE}" -p "${PROJECT_NAME}" down --remove-orphans
 docker compose -f "${COMPOSE_FILE}" -p "${PROJECT_NAME}" down --remove-orphans 2>/dev/null || true
 
 log_info "Removing named volumes..."
+# Exact command:
+# docker volume rm arogya-postgres-data arogya-mongodb-data arogya-kafka-data \
+#   arogya-zookeeper-data arogya-zookeeper-log
 docker volume rm \
   arogya-postgres-data \
   arogya-mongodb-data \
@@ -56,6 +68,8 @@ docker volume rm \
   2>/dev/null || log_warn "Some volumes were already removed or did not exist — continuing."
 
 log_info "Pruning dangling images (optional cleanup)..."
+# Exact command:
+# docker image prune -f --filter "label=com.docker.compose.project=${PROJECT_NAME}"
 docker image prune -f --filter "label=com.docker.compose.project=${PROJECT_NAME}" 2>/dev/null || true
 
 echo ""

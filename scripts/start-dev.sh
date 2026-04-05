@@ -5,6 +5,14 @@
 # =============================================================================
 # Usage: bash scripts/start-dev.sh
 # Requires: Docker, Docker Compose
+# What this script runs:
+#   1. docker compose -f infrastructure/docker/docker-compose.dev.yml -p arogya pull --ignore-pull-failures
+#   2. docker compose -f infrastructure/docker/docker-compose.dev.yml -p arogya up -d \
+#        postgres mongodb zookeeper kafka kafka-ui
+#   3. docker inspect --format='{{.State.Health.Status}}' arogya-<service>
+# Notes:
+#   - This starts shared infrastructure only.
+#   - It does not start patient-service or any other application container.
 # =============================================================================
 
 set -euo pipefail
@@ -43,10 +51,15 @@ log_info "Compose file: ${COMPOSE_FILE}"
 echo ""
 
 # -- Pull latest images silently --
+# Exact command:
+# docker compose -f "${COMPOSE_FILE}" -p "${PROJECT_NAME}" pull --ignore-pull-failures
 log_info "Pulling latest infrastructure images..."
 docker compose -f "${COMPOSE_FILE}" -p "${PROJECT_NAME}" pull --ignore-pull-failures 2>/dev/null || true
 
 # -- Start infrastructure --
+# Exact command:
+# docker compose -f "${COMPOSE_FILE}" -p "${PROJECT_NAME}" up -d \
+#   postgres mongodb zookeeper kafka kafka-ui
 log_info "Starting infrastructure services..."
 docker compose -f "${COMPOSE_FILE}" -p "${PROJECT_NAME}" up -d \
   postgres \
@@ -63,6 +76,8 @@ wait_for_healthy() {
   local max_attempts=30
   local attempt=0
   while [ $attempt -lt $max_attempts ]; do
+    # Exact command:
+    # docker inspect --format='{{.State.Health.Status}}' "arogya-${service}"
     local health
     health=$(docker inspect --format='{{.State.Health.Status}}' "arogya-${service}" 2>/dev/null || echo "not-found")
     if [ "${health}" = "healthy" ]; then

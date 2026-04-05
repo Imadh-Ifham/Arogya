@@ -12,8 +12,6 @@
 #   make reset  — stop and remove all volumes
 # =============================================================================
 
-version: "3.9"
-
 # ---------------------------------------------------------------------------
 # Networks
 # ---------------------------------------------------------------------------
@@ -365,8 +363,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
+      # Keep Kafka wiring in env for later, but don't block patient-service
+      # startup on Kafka while the service is still being developed locally.
+      # kafka:
+      #   condition: service_healthy
     environment:
       SERVER_PORT: 8082
       SPRING_PROFILES_ACTIVE: docker
