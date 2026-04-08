@@ -6,6 +6,10 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/arogya_patients}
     username: ${SPRING_DATASOURCE_USERNAME:arogya}
     password: ${SPRING_DATASOURCE_PASSWORD:arogya_secret}
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:10MB}
 
   jpa:
     hibernate:
@@ -16,3 +20,7 @@ spring:
 
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+patient:
+  storage:
+    upload-dir: ${PATIENT_STORAGE_UPLOAD_DIR:uploads}
