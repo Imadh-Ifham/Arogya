@@ -14,6 +14,7 @@ COPY tsconfig.json ./
 
 RUN npm ci --only=production=false
 
+COPY server.ts ./
 COPY src/ ./src/
 
 RUN npm run build
@@ -33,7 +34,7 @@ COPY --from=builder /app/dist ./dist
 # Never run as root inside a container — security best practice
 USER node
 
-EXPOSE 3001
+EXPOSE 8081
 
 # Use the compiled JS entry point
 CMD ["node", "dist/server.js"]
