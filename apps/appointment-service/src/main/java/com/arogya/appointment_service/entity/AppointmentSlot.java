@@ -1,3 +1,13 @@
+package com.arogya.appointment_service.entity;
+
+import com.arogya.appointment_service.enums.SlotStatus;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "appointment_slots")
 @Data

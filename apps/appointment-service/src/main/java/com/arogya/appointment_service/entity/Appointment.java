@@ -1,3 +1,13 @@
+package com.arogya.appointment_service.entity;
+
+import com.arogya.appointment_service.enums.AppointmentStatus;
+import com.arogya.appointment_service.enums.AppointmentType;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "appointments")
 @Data
@@ -21,6 +31,10 @@ public class Appointment {
     @Column(nullable = false)
     private AppointmentStatus status = AppointmentStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AppointmentType appointmentType = AppointmentType.PHYSICAL;
+
     private String paymentId;       // filled after payment confirmed
     private String meetingUrl;      // filled after telemedicine session created
 
@@ -30,4 +44,9 @@ public class Appointment {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
