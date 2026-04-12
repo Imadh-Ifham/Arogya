@@ -1,6 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 import { IUser, UserRole } from "../types/auth.types";
+import { env } from "../config/env";
 
 const userSchema = new Schema<IUser>(
   {
@@ -14,7 +15,6 @@ const userSchema = new Schema<IUser>(
     passwordHash: {
       type: String,
       required: [true, "Password is required"],
-      minlength: 60,
       select: false, // CRITICAL: this field is NEVER returned in queries unless explicitly requested
     },
     role: {
@@ -46,7 +46,6 @@ userSchema.index({ role: 1, isActive: 1 });
 
 userSchema.pre("save", async function () {
   if (!this.isModified("passwordHash")) return;
-  const { env } = await import("../config/env");
   this.passwordHash = await bcrypt.hash(this.passwordHash, env.bcryptRounds);
 });
 
