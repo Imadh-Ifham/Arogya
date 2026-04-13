@@ -406,3 +406,22 @@ services:
   #       condition: service_healthy
   #   networks:
   #     - arogya-net
+  # Doctor Service — Port 8083
+  doctor-service:
+    image: arogya/doctor-service:latest
+    container_name: doctor-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SERVER_PORT=8083
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/arogya_doctors
+      - SPRING_DATASOURCE_USERNAME=arogya
+      - SPRING_DATASOURCE_PASSWORD=arogya_secret
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - AUTH_SERVICE_URL=http://auth-service:8081
+    depends_on:
+      - postgres
+      - kafka
+    networks:
+      - arogya-net
