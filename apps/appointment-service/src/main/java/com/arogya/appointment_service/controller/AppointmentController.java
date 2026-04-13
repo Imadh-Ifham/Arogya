@@ -96,4 +96,48 @@ public class AppointmentController {
         return ResponseEntity.ok(
                 appointmentService.cancelAppointment(id, auth.getName(), request));
     }
+
+    /**
+     * Doctor accepts an appointment (doctor role only).
+     * Sets status → CONFIRMED and notifies the patient.
+     */
+    @PatchMapping("/{id}/accept")
+    public ResponseEntity<AppointmentResponse> acceptAppointment(
+            @PathVariable String id,
+            Authentication auth) {
+
+        String role = auth.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
+        if (!"DOCTOR".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(appointmentService.acceptAppointment(id, auth.getName()));
+    }
+
+    /**
+     * Doctor rejects an appointment (doctor role only).
+     * Sets status → CANCELLED, releases the slot, and notifies the patient.
+     */
+    @PatchMapping("/{id}/reject")
+    public ResponseEntity<AppointmentResponse> rejectAppointment(
+            @PathVariable String id,
+            Authentication auth) {
+
+        String role = auth.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
+        if (!"DOCTOR".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(appointmentService.rejectAppointment(id, auth.getName()));
+    }
+
+    /**
+     * Doctor views all their appointments (doctor dashboard).
+     */
+    @GetMapping("/doctor")
+    public ResponseEntity<List<AppointmentResponse>> getDoctorAppointments(Authentication auth) {
+        String role = auth.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
+        if (!"DOCTOR".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(appointmentService.getDoctorAppointments(auth.getName()));
+    }
 }

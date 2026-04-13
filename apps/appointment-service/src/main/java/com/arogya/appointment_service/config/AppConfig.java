@@ -14,6 +14,12 @@ public class AppConfig {
     @Value("${services.telemedicine.url}")
     private String telemedicineServiceUrl;
 
+    @Value("${services.payment.url}")
+    private String paymentServiceUrl;
+
+    @Value("${services.notification.url}")
+    private String notificationServiceUrl;
+
     @Bean
     public RestTemplate restTemplate() {
         return new RestTemplate();
@@ -27,5 +33,15 @@ public class AppConfig {
     @Bean
     public String telemedicineServiceUrl() {
         return telemedicineServiceUrl;
+    }
+
+    @Bean
+    public String paymentServiceUrl() {
+        return paymentServiceUrl;
+    }
+
+    @Bean
+    public String notificationServiceUrl() {
+        return notificationServiceUrl;
     }
 }

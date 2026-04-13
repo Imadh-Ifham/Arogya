@@ -14,8 +14,12 @@ export interface AppointmentSummary {
   id: string;
   patientId: string;
   doctorId: string;
-  startsAt: string;
-  status: "scheduled" | "cancelled" | "completed";
+  /** ISO datetime — present when the slot start time is included in the response */
+  startsAt?: string;
+  /** Slot creation time — always present */
+  createdAt?: string;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
+  appointmentType: "PHYSICAL" | "ONLINE";
 }
 
 export interface ServiceClientResult<T> {

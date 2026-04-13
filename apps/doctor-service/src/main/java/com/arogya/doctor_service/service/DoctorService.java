@@ -25,6 +25,15 @@ public class DoctorService {
         return doctorRepository.save(doctor);
     }
 
+    // 1b. Search / list doctors — optional specialty filter, only APPROVED doctors visible to patients
+    public List<Doctor> getDoctors(String specialty) {
+        if (specialty != null && !specialty.isBlank()) {
+            return doctorRepository.findBySpecialtyContainingIgnoreCaseAndVerificationStatus(
+                    specialty, VerificationStatus.APPROVED);
+        }
+        return doctorRepository.findByVerificationStatus(VerificationStatus.APPROVED);
+    }
+
     // 2. Get Doctor with Calculated Average Rating
     public Doctor getDoctorProfile(Long id) {
         Doctor doctor = doctorRepository.findById(id)

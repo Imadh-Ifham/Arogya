@@ -10,5 +10,8 @@ import java.util.List;
 public interface DoctorRepository extends JpaRepository<Doctor, Long> {
     // Custom method to let patients search only for approved doctors!
     List<Doctor> findByVerificationStatus(VerificationStatus status);
+
+    // Search by specialty (case-insensitive) and verification status
+    List<Doctor> findBySpecialtyContainingIgnoreCaseAndVerificationStatus(String specialty, VerificationStatus status);
 }
 

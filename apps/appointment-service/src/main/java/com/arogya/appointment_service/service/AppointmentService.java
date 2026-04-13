@@ -1,5 +1,7 @@
 package com.arogya.appointment_service.service;
 
+import com.arogya.appointment_service.client.NotificationServiceClient;
+import com.arogya.appointment_service.client.PaymentServiceClient;
 import com.arogya.appointment_service.client.TelemedicineServiceClient;
 import com.arogya.appointment_service.dto.request.BookAppointmentRequest;
 import com.arogya.appointment_service.dto.request.CancelAppointmentRequest;
@@ -28,6 +30,8 @@ public class AppointmentService {
     private final AppointmentSlotRepository slotRepository;
     private final AppointmentSlotService slotService;
     private final TelemedicineServiceClient telemedicineClient;
+    private final PaymentServiceClient paymentClient;
+    private final NotificationServiceClient notificationClient;
 
     /**
      * APT-02: Book an appointment.
@@ -61,6 +65,21 @@ public class AppointmentService {
             saved.setMeetingUrl(meetingUrl);
             saved = appointmentRepository.save(saved);
         }
+
+        // Call payment service to initiate payment.
+        // On failure the exception propagates, the transaction rolls back, and the slot is released.
+        String paymentId = paymentClient.initiatePayment(saved.getId(), slot.getFee(), patientId);
+        saved.setPaymentId(paymentId);
+        saved.setStatus(AppointmentStatus.CONFIRMED);
+        saved = appointmentRepository.save(saved);
+
+        // Fire-and-forget notification — must not fail the booking if notification service is down
+        notificationClient.sendAppointmentConfirmed(
+                saved.getId(),
+                patientId,
+                slot.getDoctorId(),
+                slot.getStartTime() != null ? slot.getStartTime().toString() : null
+        );
 
         return AppointmentResponse.from(saved);
     }
@@ -158,6 +177,74 @@ public class AppointmentService {
         });
 
         return AppointmentResponse.from(appointmentRepository.save(appointment));
+    }
+
+    /**
+     * Doctor accepts an appointment.
+     * Only the assigned doctor can accept their own appointment.
+     */
+    @Transactional
+    public AppointmentResponse acceptAppointment(String appointmentId, String doctorId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
+
+        if (!appointment.getDoctorId().equals(doctorId)) {
+            throw new UnauthorizedException("You are not the assigned doctor for this appointment");
+        }
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED
+                || appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot accept appointment with status: " + appointment.getStatus());
+        }
+
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        Appointment saved = appointmentRepository.save(appointment);
+
+        // Notify the patient that the doctor accepted
+        notificationClient.sendAppointmentAccepted(saved.getId(), saved.getPatientId(), doctorId);
+
+        return AppointmentResponse.from(saved);
+    }
+
+    /**
+     * Doctor rejects / cancels an appointment.
+     * Releases the slot so another patient can book it.
+     */
+    @Transactional
+    public AppointmentResponse rejectAppointment(String appointmentId, String doctorId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
+
+        if (!appointment.getDoctorId().equals(doctorId)) {
+            throw new UnauthorizedException("You are not the assigned doctor for this appointment");
+        }
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED
+                || appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot reject appointment with status: " + appointment.getStatus());
+        }
+
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        appointment.setCancellationReason("Rejected by doctor");
+
+        // Re-release the slot
+        slotRepository.findById(appointment.getSlotId()).ifPresent(slot -> {
+            slot.setStatus(SlotStatus.AVAILABLE);
+            slotRepository.save(slot);
+        });
+
+        Appointment saved = appointmentRepository.save(appointment);
+
+        // Notify the patient that the doctor rejected
+        notificationClient.sendAppointmentRejected(saved.getId(), saved.getPatientId(), doctorId);
+
+        return AppointmentResponse.from(saved);
+    }
+
+    /**
+     * List all appointments for a specific doctor (used by doctor dashboard).
+     */
+    public List<AppointmentResponse> getDoctorAppointments(String doctorId) {
+        return appointmentRepository.findByDoctorId(doctorId)
+                .stream().map(AppointmentResponse::from).toList();
     }
 
     // Patients can only view their own appointments; doctors and admins can view any
