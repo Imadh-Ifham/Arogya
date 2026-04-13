@@ -2,6 +2,9 @@ spring:
   application:
     name: doctor-service
 
+auth-service:
+  base-url: http://localhost:8081
+
 # ==========================================
 # PROFILE: LOCAL (For running in IntelliJ)
 # ==========================================
@@ -25,6 +28,9 @@ spring:
 
 server:
   port: 8083
+auth-service:
+  base-url: http://localhost:8081
+
 
 # ==========================================
 # PROFILE: DOCKER (For running via docker-compose)
@@ -49,3 +55,6 @@ spring:
 
 server:
   port: ${SERVER_PORT:8083}
+
+auth-service:
+  base-url: ${AUTH_SERVICE_URL:http://localhost:8081}

@@ -53,11 +53,10 @@ services:
     environment:
       POSTGRES_USER: arogya
       POSTGRES_PASSWORD: arogya_secret
-      POSTGRES_MULTIPLE_DATABASES: arogya_users,arogya_appointments,arogya_prescriptions
+      POSTGRES_MULTIPLE_DATABASES: arogya_users,arogya_appointments,arogya_prescriptions,arogya_doctors
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      # Optional: mount an init script to create multiple databases
-      # - ./postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+      - ./postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
     ports:
       - "5432:5432"
     networks:
@@ -353,10 +352,43 @@ services:
   #   networks:
   #     - arogya-net
 
+  # -------------------------------------------------------------------------
+  # Auth Service — Port 8081
+  # -------------------------------------------------------------------------
+  auth-service:
+    image: arogya/auth-service:latest
+    container_name: arogya-auth-service
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8081
+      MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_auth?authSource=admin
+      JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: changeme-use-a-different-256bit-secret-in-production
+      JWT_REFRESH_EXPIRES_IN: 7d
+      BCRYPT_ROUNDS: 12
+    ports:
+      - "8081:8081"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/api/auth/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # -------------------------------------------------------------------------
   # Doctor Service — Port 8083
+  # -------------------------------------------------------------------------
   doctor-service:
     image: arogya/doctor-service:latest
-    container_name: doctor-service
+    container_name: arogya-doctor-service
+    restart: unless-stopped
     ports:
       - "8083:8083"
     environment:
@@ -368,7 +400,40 @@ services:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - AUTH_SERVICE_URL=http://auth-service:8081
     depends_on:
-      - postgres
-      - kafka
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    networks:
+      - arogya-net
+
+  # -------------------------------------------------------------------------
+  # Patient Service - Port 8082
+  # -------------------------------------------------------------------------
+  patient-service:
+    build:
+      context: ../../apps/patient-service
+      dockerfile: Dockerfile
+    image: arogya/patient-service:latest
+    container_name: arogya-patient-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # Keep Kafka wiring in env for later, but don't block patient-service
+      # startup on Kafka while the service is still being developed locally.
+      # kafka:
+      #   condition: service_healthy
+    environment:
+      SERVER_PORT: 8082
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/arogya_patients
+      SPRING_DATASOURCE_USERNAME: arogya
+      SPRING_DATASOURCE_PASSWORD: arogya_secret
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8082:8082"
     networks:
       - arogya-net
