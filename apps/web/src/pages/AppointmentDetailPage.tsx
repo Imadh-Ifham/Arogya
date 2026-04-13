@@ -65,7 +65,7 @@ export default function AppointmentDetailPage() {
     <Layout>
       <button
         onClick={() => navigate(-1)}
-        className="text-sm text-gray-500 hover:text-gray-700 mb-6 flex items-center gap-1"
+        className="text-sm text-muted-foreground hover:text-foreground mb-6 flex items-center gap-1 transition-colors"
       >
         ← Back
       </button>
@@ -78,20 +78,20 @@ export default function AppointmentDetailPage() {
 
       {appointment && (
         <div className="max-w-lg space-y-5">
-          <h1 className="text-2xl font-bold text-gray-900">Appointment Detail</h1>
+          <h1 className="text-2xl font-bold text-foreground">Appointment Detail</h1>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+          <div className="bg-card border border-border rounded-xl p-5 space-y-3">
             <div className="flex justify-between items-start">
-              <p className="font-semibold text-gray-800">{getDoctorName(appointment.doctorId)}</p>
-              <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
+              <p className="font-semibold text-foreground">{getDoctorName(appointment.doctorId)}</p>
+              <span className="text-xs font-medium bg-muted text-muted-foreground px-2.5 py-1 rounded-full border border-border">
                 {appointment.status}
               </span>
             </div>
-            <p className="text-sm text-gray-500 capitalize">
+            <p className="text-sm text-muted-foreground capitalize">
               Type: {appointment.appointmentType.toLowerCase()}
             </p>
-            <p className="text-xs text-gray-400">Booked {formatDateTime(appointment.createdAt)}</p>
-            <p className="text-xs text-gray-400">Updated {formatDateTime(appointment.updatedAt)}</p>
+            <p className="text-xs text-muted-foreground/70">Booked {formatDateTime(appointment.createdAt)}</p>
+            <p className="text-xs text-muted-foreground/70">Updated {formatDateTime(appointment.updatedAt)}</p>
             {appointment.cancellationReason && (
               <p className="text-sm text-red-500">
                 Reason: {appointment.cancellationReason}
@@ -102,7 +102,7 @@ export default function AppointmentDetailPage() {
                 href={appointment.meetingUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-block text-sm text-blue-600 hover:underline"
+                className="inline-block text-sm text-teal hover:underline"
               >
                 Join video call →
               </a>
@@ -125,7 +125,7 @@ export default function AppointmentDetailPage() {
               </button>
               <button
                 onClick={() => { setShowCancel(false); setShowReschedule((v) => !v); }}
-                className="flex-1 border border-blue-300 text-blue-600 text-sm py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                className="flex-1 border border-border text-foreground text-sm py-2 rounded-lg hover:bg-secondary transition-colors"
               >
                 Reschedule
               </button>
@@ -133,13 +133,13 @@ export default function AppointmentDetailPage() {
           )}
 
           {showCancel && (
-            <div className="bg-white border border-red-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-medium text-gray-700">Reason (optional)</p>
+            <div className="bg-card border border-red-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-medium text-foreground">Reason (optional)</p>
               <textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 rows={2}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+                className="w-full border border-border bg-input-background text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
                 placeholder="e.g. Schedule conflict"
               />
               <button
@@ -152,15 +152,15 @@ export default function AppointmentDetailPage() {
           )}
 
           {showReschedule && (
-            <div className="bg-white border border-blue-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-medium text-gray-700">Select a new slot</p>
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <p className="text-sm font-medium text-foreground">Select a new slot</p>
               {availableSlots.length === 0 ? (
-                <p className="text-sm text-gray-400">No available slots right now.</p>
+                <p className="text-sm text-muted-foreground">No available slots right now.</p>
               ) : (
                 <select
                   value={selectedNewSlot}
                   onChange={(e) => setSelectedNewSlot(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-border bg-input-background text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">-- pick a slot --</option>
                   {availableSlots.map((s) => (
@@ -173,7 +173,7 @@ export default function AppointmentDetailPage() {
               <button
                 onClick={handleReschedule}
                 disabled={!selectedNewSlot}
-                className="w-full bg-blue-600 text-white text-sm py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="w-full bg-primary text-primary-foreground text-sm py-2 rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
               >
                 Confirm Reschedule
               </button>

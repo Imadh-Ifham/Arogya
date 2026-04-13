@@ -7,11 +7,11 @@ import Layout from "../components/Layout";
 import type { AppointmentStatus } from "../modules/appointment/api/rest";
 
 const STATUS_STYLES: Record<AppointmentStatus, string> = {
-  PENDING:    "bg-yellow-50 text-yellow-700 border-yellow-200",
-  CONFIRMED:  "bg-green-50 text-green-700 border-green-200",
-  CANCELLED:  "bg-red-50 text-red-700 border-red-200",
-  COMPLETED:  "bg-blue-50 text-blue-700 border-blue-200",
-  NO_SHOW:    "bg-gray-100 text-gray-600 border-gray-200",
+  PENDING: "bg-amber-light text-amber border-border",
+  CONFIRMED: "bg-teal-light text-teal border-border",
+  CANCELLED: "bg-red-50 text-red-700 border-red-200",
+  COMPLETED: "bg-sage-light text-green-700 border-border",
+  NO_SHOW: "bg-muted text-muted-foreground border-border",
 };
 
 function formatDate(iso: string) {
@@ -29,17 +29,17 @@ export default function AppointmentsPage() {
   return (
     <Layout>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Appointments</h1>
+        <h1 className="text-2xl font-bold text-foreground">My Appointments</h1>
         <Link
           to="/slots"
-          className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="text-sm bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
         >
           + Book New
         </Link>
       </div>
 
       {loading === "pending" && (
-        <div className="text-center py-16 text-gray-400">Loading appointments…</div>
+        <div className="text-center py-16 text-muted-foreground">Loading appointments…</div>
       )}
 
       {error && (
@@ -49,9 +49,9 @@ export default function AppointmentsPage() {
       )}
 
       {loading === "succeeded" && appointments.length === 0 && (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg">No appointments yet.</p>
-          <Link to="/slots" className="text-blue-600 hover:underline text-sm mt-1 inline-block">
+          <Link to="/slots" className="text-teal hover:underline text-sm mt-1 inline-block">
             Browse available slots →
           </Link>
         </div>
@@ -62,15 +62,15 @@ export default function AppointmentsPage() {
           <Link
             key={apt.id}
             to={`/appointments/${apt.id}`}
-            className="block bg-white border border-gray-200 rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
+            className="block bg-card border border-border rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-0.5">
-                <p className="font-semibold text-gray-800 text-sm">
+                <p className="font-semibold text-foreground text-sm">
                   {getDoctorName(apt.doctorId)}
                 </p>
-                <p className="text-xs text-gray-500">Booked {formatDate(apt.createdAt)}</p>
-                <p className="text-xs text-gray-400 capitalize">{apt.appointmentType.toLowerCase()}</p>
+                <p className="text-xs text-muted-foreground">Booked {formatDate(apt.createdAt)}</p>
+                <p className="text-xs text-muted-foreground/70 capitalize">{apt.appointmentType.toLowerCase()}</p>
               </div>
               <span
                 className={`text-xs font-medium border rounded-full px-2.5 py-1 whitespace-nowrap ${STATUS_STYLES[apt.status]}`}
@@ -85,7 +85,7 @@ export default function AppointmentsPage() {
                 target="_blank"
                 rel="noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="mt-3 inline-block text-xs text-blue-600 hover:underline"
+                className="mt-3 inline-block text-xs text-teal hover:underline"
               >
                 Join video call →
               </a>

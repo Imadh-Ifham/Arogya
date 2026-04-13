@@ -1,24 +1,29 @@
-import { useState, type FormEvent, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useState, type FormEvent, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { registerThunk } from "../store/auth/auth.thunk";
 import { fetchMeThunk } from "../store/auth/auth.thunk";
 import { clearAuthError } from "../store/auth/auth.slice";
+import { Activity, Eye, EyeOff } from "lucide-react";
 
 type Role = "patient" | "doctor" | "admin";
 
 export default function RegisterPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { loading, error, accessToken } = useAppSelector((s) => s.auth);
 
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    role: "patient" as Role,
-    firstName: "",
-    lastName: "",
-  });
+  const initialRole = useMemo(() => (searchParams.get("role") === "doctor" ? "doctor" : "patient"), [searchParams]);
+  const [role, setRole] = useState<Exclude<Role, "admin">>(initialRole);
+  const [showPw, setShowPw] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [licenseNo, setLicenseNo] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [clientError, setClientError] = useState<string | null>(null);
 
   useEffect(() => {
     if (accessToken) navigate("/appointments", { replace: true });
@@ -26,8 +31,26 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setClientError(null);
+    if (password !== confirmPassword) {
+      setClientError("Passwords do not match");
+      return;
+    }
+
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+    const firstName = parts[0] ?? "";
+    const lastName = parts.slice(1).join(" ") || undefined;
+
     dispatch(clearAuthError());
-    const result = await dispatch(registerThunk(form));
+    const result = await dispatch(
+      registerThunk({
+        email,
+        password,
+        role: role as Role,
+        firstName: firstName || undefined,
+        lastName,
+      }),
+    );
     if (registerThunk.fulfilled.match(result)) {
       await dispatch(fetchMeThunk());
       navigate("/appointments", { replace: true });
@@ -35,92 +58,138 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 w-full max-w-sm p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Create account</h1>
-        <p className="text-sm text-gray-500 mb-6">
-          Already have one?{" "}
-          <Link to="/login" className="text-blue-600 hover:underline">
-            Sign in
-          </Link>
-        </p>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        <Link to="/" className="flex items-center gap-2 justify-center mb-8">
+          <Activity className="w-7 h-7 text-teal" />
+          <span className="text-xl text-foreground">Arogya</span>
+        </Link>
 
-        {error && (
-          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {error}
+        <div className="bg-card rounded-2xl border border-border p-8 shadow-sm">
+          <div className="flex bg-secondary rounded-lg p-1 mb-6">
+            {(["patient", "doctor"] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRole(r)}
+                className={`flex-1 py-2 rounded-md text-sm capitalize transition-colors ${
+                  role === r ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                }`}
+              >
+                {r} Registration
+              </button>
+            ))}
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          {(clientError || error) && (
+            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {clientError || error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">First name</label>
+              <label className="text-sm text-foreground block mb-1.5">Full Name</label>
               <input
-                type="text"
-                value={form.firstName}
-                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ada"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Enter your full name"
+                autoComplete="name"
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Last name</label>
+              <label className="text-sm text-foreground block mb-1.5">Email</label>
               <input
-                type="text"
-                value={form.lastName}
-                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Lovelace"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="you@example.com"
+                autoComplete="email"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="you@example.com"
-            />
-          </div>
+            <div>
+              <label className="text-sm text-foreground block mb-1.5">Phone Number</label>
+              <input
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="+94 7X XXX XXXX"
+                inputMode="tel"
+                autoComplete="tel"
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              minLength={8}
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="min 8 characters"
-            />
-          </div>
+            {role === "doctor" && (
+              <div>
+                <label className="text-sm text-foreground block mb-1.5">NIC / Medical License No.</label>
+                <input
+                  value={licenseNo}
+                  onChange={(e) => setLicenseNo(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Enter license number"
+                />
+              </div>
+            )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-            <select
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            <div>
+              <label className="text-sm text-foreground block mb-1.5">Password</label>
+              <div className="relative">
+                <input
+                  type={showPw ? "text" : "password"}
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground pr-10 focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Create a password"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                >
+                  {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-foreground block mb-1.5">Confirm Password</label>
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Confirm password"
+                autoComplete="new-password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading === "pending"}
+              className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              <option value="patient">Patient</option>
-              <option value="doctor">Doctor</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
+              {loading === "pending" ? "Creating account…" : "Create Account"}
+            </button>
+          </form>
 
-          <button
-            type="submit"
-            disabled={loading === "pending"}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {loading === "pending" ? "Creating account…" : "Create account"}
-          </button>
-        </form>
+          <p className="text-sm text-muted-foreground text-center mt-6">
+            Already have an account?{" "}
+            <Link to="/login" className="text-teal hover:underline">
+              Login
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

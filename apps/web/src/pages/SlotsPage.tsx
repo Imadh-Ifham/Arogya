@@ -26,19 +26,19 @@ export default function SlotsPage() {
   return (
     <Layout>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Available Slots</h1>
+        <h1 className="text-2xl font-bold text-foreground">Available Slots</h1>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">Filter by date</label>
+          <label className="text-sm text-muted-foreground">Filter by date</label>
           <input
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-border bg-input-background text-foreground rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           {dateFilter && (
             <button
               onClick={() => setDateFilter("")}
-              className="text-xs text-gray-400 hover:text-gray-600"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               Clear
             </button>
@@ -47,7 +47,7 @@ export default function SlotsPage() {
       </div>
 
       {loading === "pending" && (
-        <div className="text-center py-16 text-gray-400">Loading slots…</div>
+        <div className="text-center py-16 text-muted-foreground">Loading slots…</div>
       )}
 
       {error && (
@@ -57,11 +57,11 @@ export default function SlotsPage() {
       )}
 
       {loading === "succeeded" && slots.length === 0 && (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg">No available slots found.</p>
           <p className="text-sm mt-1">
             Run the seed script to populate test data — see{" "}
-            <code className="bg-gray-100 px-1 rounded">
+            <code className="bg-muted px-1 rounded text-foreground">
               apps/appointment-service/seed-test-slots.sql
             </code>
           </p>
@@ -74,40 +74,40 @@ export default function SlotsPage() {
           .map((slot) => (
             <div
               key={slot.id}
-              className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow"
+              className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow"
             >
               <div>
-                <p className="font-semibold text-gray-800 text-sm">
+                <p className="font-semibold text-foreground text-sm">
                   {getDoctorLabel(slot.doctorId)}
                 </p>
               </div>
 
-              <div className="text-xs text-gray-500 space-y-0.5">
+              <div className="text-xs text-muted-foreground space-y-0.5">
                 <p>
-                  <span className="font-medium text-gray-700">From</span>{" "}
+                  <span className="font-medium text-foreground">From</span>{" "}
                   {formatDateTime(slot.startTime)}
                 </p>
                 <p>
-                  <span className="font-medium text-gray-700">To</span>{" "}
+                  <span className="font-medium text-foreground">To</span>{" "}
                   {formatDateTime(slot.endTime)}
                 </p>
               </div>
 
-              <p className="text-blue-600 font-bold text-lg">
+              <p className="text-primary font-bold text-lg">
                 LKR{Number(slot.fee).toLocaleString("en-IN")}
               </p>
 
               {accessToken ? (
                 <Link
                   to={`/book/${slot.id}`}
-                  className="mt-auto text-center bg-blue-600 text-white text-sm py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="mt-auto text-center bg-primary text-primary-foreground text-sm py-2 rounded-lg hover:opacity-90 transition-opacity"
                 >
                   Book Slot
                 </Link>
               ) : (
                 <Link
                   to="/login"
-                  className="mt-auto text-center border border-blue-600 text-blue-600 text-sm py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                  className="mt-auto text-center border border-border text-foreground text-sm py-2 rounded-lg hover:bg-secondary transition-colors"
                 >
                   Login to book
                 </Link>

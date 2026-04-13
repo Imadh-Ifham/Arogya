@@ -10,6 +10,7 @@ import {
   Monitor,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import ThemeToggle from "../components/ThemeToggle";
 
 type Feature = { icon: React.ElementType; title: string; desc: string };
 type Step = { step: number; icon: React.ElementType; title: string; desc: string };
@@ -83,6 +84,7 @@ export default function HomePage() {
             <span className="text-xl text-foreground">Arogya</span>
           </Link>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link to="/login" className="px-4 py-2 text-sm text-foreground hover:text-primary transition-colors">
               Login
             </Link>

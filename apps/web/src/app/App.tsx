@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { useAppDispatch } from "./hooks";
 import { fetchMeThunk } from "../store/auth/auth.thunk";
 import { forceLogout } from "../store/auth/auth.slice";
+import { applyTheme, getInitialTheme } from "./theme";
 
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
@@ -20,6 +21,11 @@ function AppRoutes() {
   useEffect(() => {
     dispatch(fetchMeThunk());
   }, [dispatch]);
+
+  // Apply saved/system theme early in app lifecycle
+  useEffect(() => {
+    applyTheme(getInitialTheme());
+  }, []);
 
   // Listen for forced logout events fired by the axios interceptor
   useEffect(() => {

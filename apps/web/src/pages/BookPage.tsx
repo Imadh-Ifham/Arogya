@@ -47,12 +47,12 @@ export default function BookPage() {
       <div className="max-w-md mx-auto">
         <button
           onClick={() => navigate(-1)}
-          className="text-sm text-gray-500 hover:text-gray-700 mb-6 flex items-center gap-1"
+          className="text-sm text-muted-foreground hover:text-foreground mb-6 flex items-center gap-1 transition-colors"
         >
           ← Back
         </button>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Book Appointment</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-6">Book Appointment</h1>
 
         {slotError && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
@@ -61,12 +61,12 @@ export default function BookPage() {
         )}
 
         {slot && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6 space-y-2">
-            <p className="font-semibold text-gray-800">{getDoctorLabel(slot.doctorId)}</p>
-            <p className="text-sm text-gray-500">
+          <div className="bg-card border border-border rounded-xl p-5 mb-6 space-y-2">
+            <p className="font-semibold text-foreground">{getDoctorLabel(slot.doctorId)}</p>
+            <p className="text-sm text-muted-foreground">
               {formatDateTime(slot.startTime)} → {formatDateTime(slot.endTime)}
             </p>
-            <p className="text-blue-600 font-bold text-lg">
+            <p className="text-primary font-bold text-lg">
               LKR{Number(slot.fee).toLocaleString("en-IN")}
             </p>
           </div>
@@ -78,9 +78,9 @@ export default function BookPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-xl p-5 space-y-5">
+        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-5 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Appointment type
             </label>
             <div className="flex gap-3">
@@ -89,8 +89,8 @@ export default function BookPage() {
                   key={type}
                   className={`flex-1 flex items-center justify-center gap-2 border rounded-lg py-2.5 text-sm cursor-pointer transition-colors ${
                     appointmentType === type
-                      ? "border-blue-600 bg-blue-50 text-blue-700 font-medium"
-                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                      ? "border-border bg-secondary text-foreground font-medium"
+                      : "border-border text-muted-foreground hover:bg-secondary"
                   }`}
                 >
                   <input
@@ -110,7 +110,7 @@ export default function BookPage() {
           <button
             type="submit"
             disabled={bookingLoading === "pending" || !slot}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {bookingLoading === "pending" ? "Booking…" : "Confirm Booking"}
           </button>

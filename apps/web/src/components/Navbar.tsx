@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { logoutThunk } from "../store/auth/auth.thunk";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Navbar() {
   const dispatch = useAppDispatch();
@@ -13,28 +14,30 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-      <Link to="/" className="text-xl font-bold text-blue-600 tracking-tight">
+    <nav className="bg-card border-b border-border px-6 py-3 flex items-center justify-between">
+      <Link to="/" className="text-xl font-semibold text-foreground tracking-tight">
         Arogya
       </Link>
 
-      <div className="flex items-center gap-6 text-sm font-medium text-gray-600">
-        <Link to="/slots" className="hover:text-blue-600 transition-colors">
+      <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
+        <Link to="/slots" className="hover:text-foreground transition-colors">
           Browse Slots
         </Link>
 
         {accessToken && (
-          <Link to="/appointments" className="hover:text-blue-600 transition-colors">
+          <Link to="/appointments" className="hover:text-foreground transition-colors">
             My Appointments
           </Link>
         )}
 
+        <ThemeToggle />
+
         {accessToken ? (
           <div className="flex items-center gap-3">
             {user && (
-              <span className="text-gray-400 text-xs">
+              <span className="text-muted-foreground text-xs">
                 {user.firstName ?? user.email}{" "}
-                <span className="capitalize bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                <span className="capitalize bg-secondary text-foreground px-2 py-0.5 rounded-full border border-border">
                   {user.role}
                 </span>
               </span>
@@ -48,12 +51,12 @@ export default function Navbar() {
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <Link to="/login" className="hover:text-blue-600 transition-colors">
+            <Link to="/login" className="hover:text-foreground transition-colors">
               Login
             </Link>
             <Link
               to="/register"
-              className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity"
             >
               Register
             </Link>
