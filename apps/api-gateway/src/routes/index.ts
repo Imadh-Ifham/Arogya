@@ -77,29 +77,35 @@ router.use(
 );
 
 // ─── Doctor routes ─────────────────────────────────────────────────────────────
-// POST /api/doctors/register is protected so the gateway injects x-user-id.
-// GET/PUT /api/doctors/me are protected (require auth to resolve doctor identity).
-// All other doctor routes (GET list, GET profile, GET availability) remain public.
+// router.get/post/put/delete do NOT strip the path prefix (unlike router.use),
+// so req.url keeps its full value (e.g. /api/doctors/me).  We therefore pass
+// NO pathRewrite for these method-specific routes — the path is already correct.
+//
+// router.use('/api/doctors', ...) DOES strip the prefix, so doctorRewrite is
+// still needed there to restore it before forwarding.
+
+// POST /api/doctors/register — protected so the gateway injects x-user-id
 router.post(
   '/api/doctors/register',
   stripUserHeaders,
   verifyToken,
-  proxy(env.services.doctor, doctorRewrite)
+  proxy(env.services.doctor)
 );
 
-// /me routes must be declared before the catch-all so they are not swallowed
+// GET /api/doctors/me — must come before router.use('/api/doctors') catch-all
 router.get(
   '/api/doctors/me',
   stripUserHeaders,
   verifyToken,
-  proxy(env.services.doctor, doctorRewrite)
+  proxy(env.services.doctor)
 );
 
+// PUT /api/doctors/me — update own profile
 router.put(
   '/api/doctors/me',
   stripUserHeaders,
   verifyToken,
-  proxy(env.services.doctor, doctorRewrite)
+  proxy(env.services.doctor)
 );
 
 // DELETE availability slot — protected (doctor-only action)
@@ -107,9 +113,11 @@ router.delete(
   '/api/doctors/:id/availability/:templateId',
   stripUserHeaders,
   verifyToken,
-  proxy(env.services.doctor, doctorRewrite)
+  proxy(env.services.doctor)
 );
 
+// All remaining doctor routes (GET list, GET /:id, GET /:id/availability, POST review, POST availability)
+// router.use strips the prefix so doctorRewrite must restore it
 router.use(
   '/api/doctors',
   stripUserHeaders,
