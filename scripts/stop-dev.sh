@@ -5,11 +5,6 @@
 # Data volumes are preserved.
 # =============================================================================
 # Usage: bash scripts/stop-dev.sh
-# What this script runs:
-#   docker compose -f infrastructure/docker/docker-compose.dev.yml -p arogya stop
-# Notes:
-#   - Stops all currently running compose services in the arogya project.
-#   - Does not remove containers, networks, or volumes.
 # =============================================================================
 
 set -euo pipefail

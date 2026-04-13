@@ -5,13 +5,7 @@
 # =============================================================================
 # Usage: bash scripts/create-topics.sh
 # Prerequisites: Kafka container (arogya-kafka) must be running.
-#   Run: bash scripts/start-dev.sh first.
-# What this script runs:
-#   1. docker inspect --format='{{.State.Status}}' arogya-kafka
-#   2. docker exec arogya-kafka kafka-broker-api-versions --bootstrap-server kafka:9092
-#   3. docker exec arogya-kafka kafka-topics --bootstrap-server kafka:9092 --list
-#   4. docker exec arogya-kafka kafka-topics --bootstrap-server kafka:9092 --create ...
-#   5. docker exec arogya-kafka kafka-topics --bootstrap-server kafka:9092 --list
+#   Run: bash scripts/start-dev.sh  first.
 # =============================================================================
 
 set -euo pipefail
@@ -41,8 +35,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
 # -- Check Kafka container is running --
-# Exact command:
-# docker inspect --format='{{.State.Status}}' "${KAFKA_CONTAINER}"
 if ! docker inspect --format='{{.State.Status}}' "${KAFKA_CONTAINER}" 2>/dev/null | grep -q "running"; then
   log_error "Kafka container '${KAFKA_CONTAINER}' is not running."
   log_error "Start the dev environment first: bash scripts/start-dev.sh"
@@ -73,8 +65,6 @@ create_topic() {
   log_info "Creating topic: ${topic}"
 
   # Check if topic already exists
-  # Exact command:
-  # docker exec "${KAFKA_CONTAINER}" kafka-topics --bootstrap-server "${KAFKA_BOOTSTRAP}" --list
   if docker exec "${KAFKA_CONTAINER}" kafka-topics \
     --bootstrap-server "${KAFKA_BOOTSTRAP}" \
     --list 2>/dev/null | grep -q "^${topic}$"; then
@@ -82,12 +72,6 @@ create_topic() {
     return 0
   fi
 
-  # Exact command:
-  # docker exec "${KAFKA_CONTAINER}" kafka-topics \
-  #   --bootstrap-server "${KAFKA_BOOTSTRAP}" \
-  #   --create --topic "${topic}" --partitions "${PARTITIONS}" \
-  #   --replication-factor "${REPLICATION_FACTOR}" \
-  #   --config "retention.ms=${RETENTION_MS}" --if-not-exists
   docker exec "${KAFKA_CONTAINER}" kafka-topics \
     --bootstrap-server "${KAFKA_BOOTSTRAP}" \
     --create \
@@ -119,8 +103,6 @@ create_topic "consultation.started"
 
 echo ""
 log_info "Listing all topics in broker:"
-# Exact command:
-# docker exec "${KAFKA_CONTAINER}" kafka-topics --bootstrap-server "${KAFKA_BOOTSTRAP}" --list
 docker exec "${KAFKA_CONTAINER}" kafka-topics \
   --bootstrap-server "${KAFKA_BOOTSTRAP}" \
   --list 2>/dev/null | sort | sed 's/^/  /'
