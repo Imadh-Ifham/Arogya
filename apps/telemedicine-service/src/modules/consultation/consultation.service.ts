@@ -116,14 +116,22 @@ async function ensureRoomIsJitsiReady(
   return upgraded;
 }
 
-async function ensureAppointmentExists(appointmentId: string): Promise<void> {
+async function fetchAppointment(
+  appointmentId: string,
+): Promise<AppointmentSummary> {
   const result = await appointmentServiceClient.get<AppointmentSummary>(
-    `/appointments/${appointmentId}`,
+    `/api/appointments/${appointmentId}`,
   );
 
   if (!result.ok || !result.data) {
     throw new HttpError(400, "Invalid appointmentId");
   }
+
+  return result.data;
+}
+
+async function ensureAppointmentExists(appointmentId: string): Promise<void> {
+  await fetchAppointment(appointmentId);
 }
 
 function assertRoomIsUsable(room: ConsultationRoomView): void {
@@ -222,6 +230,42 @@ export async function getConsultationById(
 
 export async function getConsultations(): Promise<ConsultationView[]> {
   return listConsultations();
+}
+
+/**
+ * Aggregator called by appointment-service when an ONLINE appointment is booked.
+ * Creates (or reuses) a Jitsi room, then creates the consultation session.
+ * Returns the Jitsi meeting URL so the appointment-service can store it.
+ */
+export async function createSessionForAppointment(input: {
+  appointmentId: string;
+  patientId: string;
+  doctorId: string;
+}): Promise<string> {
+  const appointment = await fetchAppointment(input.appointmentId);
+  const startsAt = new Date(appointment.startsAt);
+
+  const expiresAt = new Date(
+    startsAt.getTime() + env.roomDefaultExpiryHours * 60 * 60 * 1000,
+  );
+
+  const room = await createRoom({
+    doctorId: input.doctorId,
+    patientId: input.patientId,
+    expiresAt,
+  });
+
+  await createConsultation(
+    {
+      appointmentId: input.appointmentId,
+      patientId: input.patientId,
+      doctorId: input.doctorId,
+      startsAt,
+    },
+    room,
+  );
+
+  return room.jitsiRoomUrl;
 }
 
 export async function changeConsultationStatus(

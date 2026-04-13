@@ -6,6 +6,7 @@ import {
   changeConsultationStatus,
   createRoom,
   createConsultationSession,
+  createSessionForAppointment,
   getConsultationById,
   getConsultations,
   reopenRoom,
