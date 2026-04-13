@@ -196,29 +196,61 @@ services:
   # ===========================================================================
 
   # -------------------------------------------------------------------------
-  # API Gateway — Port 8080
-  # Uncomment when apps/api-gateway/ has a working Dockerfile and src/
+  # API Gateway — Port 3000 (internal) → 3000 (host)
+  # Build: docker build -t arogya/api-gateway:latest apps/api-gateway/
   # -------------------------------------------------------------------------
-  # api-gateway:
-  #   image: arogya/api-gateway:latest
-  #   container_name: arogya-api-gateway
-  #   restart: unless-stopped
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  #   environment:
-  #     PORT: 8080
-  #     NODE_ENV: production
-  #     USER_SERVICE_URL: http://user-service:8081
-  #     APPOINTMENT_SERVICE_URL: http://appointment-service:8082
-  #     PRESCRIPTION_SERVICE_URL: http://prescription-service:8083
-  #     TELEMEDICINE_SERVICE_URL: http://telemedicine-service:8084
-  #     NOTIFICATION_SERVICE_URL: http://notification-service:8085
-  #     KAFKA_BROKER: kafka:9092
-  #   ports:
-  #     - "8080:8080"
-  #   networks:
-  #     - arogya-net
+  api-gateway:
+    build:
+      context: ../../apps/api-gateway
+      dockerfile: Dockerfile
+    image: arogya/api-gateway:latest
+    container_name: arogya-api-gateway
+    restart: unless-stopped
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      appointment-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Must match the JWT_SECRET used by auth-service
+      JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
+      # Internal Docker network hostnames
+      AUTH_SERVICE_URL: http://auth-service:8081
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8084
+    ports:
+      - "3000:3000"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # -------------------------------------------------------------------------
+  # Web Frontend — Vite dev server — Port 5173
+  # Build: docker build -t arogya/web:latest apps/web/
+  # -------------------------------------------------------------------------
+  web:
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile
+    image: arogya/web:latest
+    container_name: arogya-web
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    environment:
+      # Vite proxy forwards /api/* to this URL inside the Docker network
+      GATEWAY_URL: http://api-gateway:3000
+    ports:
+      - "5173:5173"
+    networks:
+      - arogya-net
 
   # -------------------------------------------------------------------------
   # User Service — Port 8081

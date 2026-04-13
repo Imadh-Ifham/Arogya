@@ -1,0 +1,77 @@
+import api from "../../../lib/api";
+
+export type SlotStatus = "AVAILABLE" | "BOOKED";
+export type AppointmentStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
+export type AppointmentType = "PHYSICAL" | "ONLINE";
+
+export interface Slot {
+  id: string;
+  doctorId: string;
+  startTime: string;
+  endTime: string;
+  fee: number;
+  status: SlotStatus;
+  createdAt: string;
+}
+
+export interface Appointment {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  slotId: string;
+  status: AppointmentStatus;
+  appointmentType: AppointmentType;
+  paymentId: string | null;
+  meetingUrl: string | null;
+  cancellationReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SlotsFilter {
+  doctorId?: string;
+  date?: string;      // ISO date string YYYY-MM-DD
+  specialty?: string;
+}
+
+export async function fetchSlots(filter?: SlotsFilter): Promise<Slot[]> {
+  const params: Record<string, string> = {};
+  if (filter?.doctorId) params.doctorId = filter.doctorId;
+  if (filter?.date) params.date = filter.date;
+  if (filter?.specialty) params.specialty = filter.specialty;
+  const { data } = await api.get("/appointments/slots", { params });
+  return data as Slot[];
+}
+
+export async function fetchSlot(slotId: string): Promise<Slot> {
+  const { data } = await api.get(`/appointments/slots/${slotId}`);
+  return data as Slot;
+}
+
+export async function bookAppointment(payload: {
+  slotId: string;
+  appointmentType: AppointmentType;
+}): Promise<Appointment> {
+  const { data } = await api.post("/appointments", payload);
+  return data as Appointment;
+}
+
+export async function fetchMyAppointments(): Promise<Appointment[]> {
+  const { data } = await api.get("/appointments/my");
+  return data as Appointment[];
+}
+
+export async function fetchAppointment(id: string): Promise<Appointment> {
+  const { data } = await api.get(`/appointments/${id}`);
+  return data as Appointment;
+}
+
+export async function cancelAppointment(id: string, cancellationReason?: string): Promise<Appointment> {
+  const { data } = await api.patch(`/appointments/${id}/cancel`, { cancellationReason });
+  return data as Appointment;
+}
+
+export async function rescheduleAppointment(id: string, newSlotId: string): Promise<Appointment> {
+  const { data } = await api.patch(`/appointments/${id}/reschedule`, { newSlotId });
+  return data as Appointment;
+}
