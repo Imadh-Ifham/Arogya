@@ -11,6 +11,7 @@ import BookPage from "../pages/BookPage";
 import AppointmentsPage from "../pages/AppointmentsPage";
 import AppointmentDetailPage from "../pages/AppointmentDetailPage";
 import ProtectedRoute from "../components/ProtectedRoute";
+import HomePage from "../pages/HomePage";
 
 function AppRoutes() {
   const dispatch = useAppDispatch();
@@ -61,8 +62,8 @@ function AppRoutes() {
       />
 
       {/* Default */}
-      <Route path="/" element={<Navigate to="/slots" replace />} />
-      <Route path="*" element={<Navigate to="/slots" replace />} />
+      <Route path="/" element={<HomePage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
