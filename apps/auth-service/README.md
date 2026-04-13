@@ -93,6 +93,11 @@ All errors follow this shape:
   "errors": []   // only on validation failures
 }
 ```
+src/middleware/auth.middleware.ts
+src/types/auth.types.ts        ← interfaces only, not the models
+```
+
+**2.** Add to your `.env`:
 
 | Status | Meaning |
 |--------|---------|
