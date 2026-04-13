@@ -8,6 +8,8 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, accessToken } = useAppSelector((s) => s.auth);
 
+  const isDoctor = user?.role === "doctor";
+
   const handleLogout = async () => {
     await dispatch(logoutThunk());
     navigate("/login");
@@ -15,29 +17,49 @@ export default function Navbar() {
 
   return (
     <nav className="bg-card border-b border-border px-6 py-3 flex items-center justify-between">
-      <Link to="/" className="text-xl font-semibold text-foreground tracking-tight">
+      <Link
+        to={accessToken ? (isDoctor ? "/doctor/dashboard" : "/appointments") : "/"}
+        className="text-xl font-semibold text-foreground tracking-tight"
+      >
         Arogya
       </Link>
 
       <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
-        <Link to="/slots" className="hover:text-foreground transition-colors">
-          Browse Slots
-        </Link>
-        <Link to="/search" className="hover:text-foreground transition-colors">
-          Find Doctors
-        </Link>
-        <Link to="/symptom-checker" className="hover:text-foreground transition-colors">
-          Symptom Checker
-        </Link>
-
-        {accessToken && (
+        {isDoctor ? (
+          /* ── Doctor nav links ── */
           <>
-            <Link to="/appointments" className="hover:text-foreground transition-colors">
-              My Appointments
+            <Link to="/doctor/dashboard" className="hover:text-foreground transition-colors">
+              Dashboard
             </Link>
-            <Link to="/profile" className="hover:text-foreground transition-colors">
-              Profile
+            <Link to="/doctor/profile" className="hover:text-foreground transition-colors">
+              My Profile
             </Link>
+            <Link to="/doctor/availability" className="hover:text-foreground transition-colors">
+              Availability
+            </Link>
+          </>
+        ) : (
+          /* ── Patient / public nav links ── */
+          <>
+            <Link to="/slots" className="hover:text-foreground transition-colors">
+              Browse Slots
+            </Link>
+            <Link to="/search" className="hover:text-foreground transition-colors">
+              Find Doctors
+            </Link>
+            <Link to="/symptom-checker" className="hover:text-foreground transition-colors">
+              Symptom Checker
+            </Link>
+            {accessToken && (
+              <>
+                <Link to="/appointments" className="hover:text-foreground transition-colors">
+                  My Appointments
+                </Link>
+                <Link to="/profile" className="hover:text-foreground transition-colors">
+                  Profile
+                </Link>
+              </>
+            )}
           </>
         )}
 

@@ -78,9 +78,33 @@ router.use(
 
 // ─── Doctor routes ─────────────────────────────────────────────────────────────
 // POST /api/doctors/register is protected so the gateway injects x-user-id.
-// All other doctor routes (GET list, GET profile) remain public.
+// GET/PUT /api/doctors/me are protected (require auth to resolve doctor identity).
+// All other doctor routes (GET list, GET profile, GET availability) remain public.
 router.post(
   '/api/doctors/register',
+  stripUserHeaders,
+  verifyToken,
+  proxy(env.services.doctor, doctorRewrite)
+);
+
+// /me routes must be declared before the catch-all so they are not swallowed
+router.get(
+  '/api/doctors/me',
+  stripUserHeaders,
+  verifyToken,
+  proxy(env.services.doctor, doctorRewrite)
+);
+
+router.put(
+  '/api/doctors/me',
+  stripUserHeaders,
+  verifyToken,
+  proxy(env.services.doctor, doctorRewrite)
+);
+
+// DELETE availability slot — protected (doctor-only action)
+router.delete(
+  '/api/doctors/:id/availability/:templateId',
   stripUserHeaders,
   verifyToken,
   proxy(env.services.doctor, doctorRewrite)

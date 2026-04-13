@@ -12,24 +12,30 @@ export default function LoginPage() {
   const location = useLocation();
   const { loading, error, accessToken } = useAppSelector((s) => s.auth);
 
-  const from = (location.state as any)?.from?.pathname ?? "/appointments";
+  const { user } = useAppSelector((s) => s.auth);
+
+  const from = (location.state as any)?.from?.pathname;
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [tab, setTab] = useState<"patient" | "doctor">("patient");
   const [showPw, setShowPw] = useState(false);
 
-  // Already logged in → redirect
+  const roleDefault = (role?: string) =>
+    role === "doctor" ? "/doctor/dashboard" : "/appointments";
+
+  // Already logged in → redirect based on role
   useEffect(() => {
-    if (accessToken) navigate(from, { replace: true });
-  }, [accessToken, from, navigate]);
+    if (accessToken && user) navigate(from ?? roleDefault(user.role), { replace: true });
+  }, [accessToken, user, from, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     dispatch(clearAuthError());
     const result = await dispatch(loginThunk(form));
     if (loginThunk.fulfilled.match(result)) {
-      await dispatch(fetchMeThunk());
-      navigate(from, { replace: true });
+      const meResult = await dispatch(fetchMeThunk());
+      const profile = fetchMeThunk.fulfilled.match(meResult) ? meResult.payload : null;
+      navigate(from ?? roleDefault(profile?.role), { replace: true });
     }
   };
 

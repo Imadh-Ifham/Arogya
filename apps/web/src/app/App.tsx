@@ -15,6 +15,9 @@ import PatientProfilePage from "../pages/PatientProfilePage";
 import DoctorSearchPage from "../pages/DoctorSearchPage";
 import SymptomCheckerPage from "../pages/SymptomCheckerPage";
 import ConsultationPage from "../pages/ConsultationPage";
+import DoctorDashboardPage from "../pages/DoctorDashboardPage";
+import DoctorProfilePage from "../pages/DoctorProfilePage";
+import DoctorAvailabilityPage from "../pages/DoctorAvailabilityPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HomePage from "../pages/HomePage";
 
@@ -92,6 +95,32 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <SymptomCheckerPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Doctor routes */}
+      <Route
+        path="/doctor/dashboard"
+        element={
+          <ProtectedRoute>
+            <DoctorDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/profile"
+        element={
+          <ProtectedRoute>
+            <DoctorProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/availability"
+        element={
+          <ProtectedRoute>
+            <DoctorAvailabilityPage />
           </ProtectedRoute>
         }
       />

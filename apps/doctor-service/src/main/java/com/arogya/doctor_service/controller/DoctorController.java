@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/doctors")
@@ -49,6 +50,40 @@ public class DoctorController {
         return ResponseEntity.ok(doctorService.registerDoctor(doctor));
     }
 
+    /**
+     * GET /api/doctors/me — returns the profile of the currently authenticated doctor.
+     * Requires x-user-id header injected by the API gateway.
+     * NOTE: This must be declared before /{id} so "me" is not treated as a path variable.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<?> getMyProfile(
+            @RequestHeader(value = "x-user-id", required = false) String authUserId) {
+        if (authUserId == null || authUserId.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
+        }
+        return doctorService.getDoctorByAuthUserId(authUserId)
+                .map(doctor -> ResponseEntity.ok(DoctorSummaryDto.from(doctor)))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * PUT /api/doctors/me — updates the currently authenticated doctor's profile.
+     * Requires x-user-id header injected by the API gateway.
+     */
+    @PutMapping("/me")
+    public ResponseEntity<?> updateMyProfile(
+            @RequestHeader(value = "x-user-id", required = false) String authUserId,
+            @RequestBody Doctor updates) {
+        if (authUserId == null || authUserId.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
+        }
+        return doctorService.getDoctorByAuthUserId(authUserId)
+                .map(doctor -> ResponseEntity.ok(
+                        DoctorSummaryDto.from(doctorService.updateDoctorProfile(doctor.getId(), updates))
+                ))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/{id}")
     public Doctor getProfile(@PathVariable Long id) {
         return doctorService.getDoctorProfile(id);
@@ -59,8 +94,30 @@ public class DoctorController {
         return doctorService.addReview(id, review);
     }
 
+    /**
+     * GET /api/doctors/{id}/availability — list all weekly availability templates for a doctor.
+     */
+    @GetMapping("/{id}/availability")
+    public ResponseEntity<List<AvailabilityTemplate>> getAvailability(@PathVariable Long id) {
+        return ResponseEntity.ok(doctorService.getAvailability(id));
+    }
+
+    /**
+     * POST /api/doctors/{id}/availability — add a weekly availability slot.
+     */
     @PostMapping("/{id}/availability")
     public AvailabilityTemplate addAvailability(@PathVariable Long id, @RequestBody AvailabilityTemplate template) {
         return doctorService.addAvailability(id, template);
+    }
+
+    /**
+     * DELETE /api/doctors/{id}/availability/{templateId} — remove a weekly availability slot.
+     */
+    @DeleteMapping("/{id}/availability/{templateId}")
+    public ResponseEntity<Void> deleteAvailability(
+            @PathVariable Long id,
+            @PathVariable Long templateId) {
+        doctorService.deleteAvailability(id, templateId);
+        return ResponseEntity.noContent().build();
     }
 }
