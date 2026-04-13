@@ -40,29 +40,19 @@
 # =============================================================================
 
 # ---------- Build Stage ----------
-# FROM maven:3.9-eclipse-temurin-17 AS builder
-#
-# WORKDIR /app
-#
-# COPY pom.xml ./
-# RUN mvn dependency:go-offline -B
-#
-# COPY src/ ./src/
-#
-# RUN mvn clean package -DskipTests
+FROM maven:3.9-eclipse-temurin-17 AS builder
+WORKDIR /app
+COPY pom.xml ./
+RUN mvn dependency:go-offline -B
+COPY src/ ./src/
+RUN mvn clean package -DskipTests
 
 # ---------- Production Stage ----------
-# FROM eclipse-temurin:17-jre-alpine AS runner
-#
-# WORKDIR /app
-#
-# RUN addgroup -S arogya && adduser -S arogya -G arogya
-# USER arogya
-#
-# COPY --from=builder /app/target/doctor-service-*.jar app.jar
-#
-# EXPOSE 8083
-#
-# ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseContainerSupport"
-#
-# CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+FROM eclipse-temurin:17-jre-alpine AS runner
+WORKDIR /app
+RUN addgroup -S arogya && adduser -S arogya -G arogya
+USER arogya
+COPY --from=builder /app/target/doctor-service-*.jar app.jar
+EXPOSE 8083
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseContainerSupport"
+CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
