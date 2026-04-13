@@ -1,170 +1,119 @@
 # Auth Service
 
-## Overview
+The sole authentication and identity authority for the Arogya platform.
+No other service issues tokens or stores passwords.
 
-The Auth Service is the sole authentication and identity authority for the Arogya platform. It owns user registration, login, JWT issuance, token refresh, and role management. No other service performs authentication — all token validation is delegated to this service or done locally using the public key issued here.
+## Stack
+- Node.js + Express + TypeScript
+- MongoDB (isolated — `arogya_auth` database)
+- JWT (access tokens) + opaque refresh tokens
 
-**Technology:** Node.js 20 + TypeScript  
-**Port:** `8081`  
-**Domain:** Authentication / Identity  
-**Database:** PostgreSQL (`arogya_auth`) — private, not shared  
-**Status:** Not yet implemented — placeholder directory only
-
----
-
-## Responsibilities
-
-- User registration (PATIENT, DOCTOR, ADMIN roles)
-- Login and JWT access/refresh token issuance
-- Token refresh and revocation
-- Password hashing (bcrypt) and reset flows
-- Role-based access control authority
-- Publishing Kafka events on registration and login
-
----
-
-## How to Create This Service from Scratch
-
-### Prerequisites
-
-- Node.js 20.x
-- npm 9.x or newer
-- PostgreSQL running locally or via Docker
-
-### Step 1 — Initialize the project
+## Running locally
 
 ```bash
-cd apps/auth-service
-npm init -y
-npm install typescript ts-node @types/node
-npm install fastify @fastify/jwt @fastify/cookie dotenv
-npm install bcrypt pg kafkajs
-npm install @types/bcrypt @types/pg
-npm install --save-dev ts-node-dev nodemon
-npx tsc --init
+cp .env.example .env    # fill in values
+npm install
+npm run dev             # http://localhost:3001
 ```
 
-### Step 2 — Configure TypeScript (`tsconfig.json`)
+## Running with Docker
+
+```bash
+# From project root
+docker-compose up --build
+```
+
+## Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/auth/health` | None | Health check |
+| POST | `/api/auth/register` | None | Register new user |
+| POST | `/api/auth/login` | None | Login |
+| POST | `/api/auth/refresh` | None | Refresh tokens |
+| POST | `/api/auth/logout` | None | Logout (revoke token) |
+| GET | `/api/auth/me` | Bearer token | Get own profile |
+| POST | `/api/auth/forgot-password` | None | Request password reset |
+| POST | `/api/auth/reset-password` | None | Complete password reset |
+
+## Token format
+
+Access tokens are JWTs. Decoded payload:
 
 ```json
 {
-  "compilerOptions": {
-    "target": "ES2021",
-    "module": "commonjs",
-    "rootDir": "src",
-    "outDir": "dist",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  }
+  "userId": "64a1f...",
+  "email": "user@arogya.lk",
+  "role": "patient",
+  "iat": 1234567890,
+  "exp": 1234568790
 }
 ```
 
-### Step 3 — Add scripts to `package.json`
+Roles: `patient` | `doctor` | `admin`
 
+Access token lifetime: **15 minutes**
+Refresh token lifetime: **7 days**
+
+## Integrating into your service (4 steps)
+
+**1.** Copy these two files into your service:
+```
+src/middleware/auth.middleware.ts
+src/types/auth.types.ts        ← interfaces only, not the models
+```
+
+**2.** Add to your `.env`:
+```
+JWT_SECRET=           ← must match auth-service exactly (ask team lead)
+```
+
+**3.** Protect your routes:
+```typescript
+import { verifyToken, requireRole } from '../middleware/auth.middleware';
+import { UserRole } from '../types/auth.types';
+
+router.get('/my-data',   verifyToken, getMyData);
+router.post('/slots',    verifyToken, requireRole(UserRole.DOCTOR), createSlot);
+router.get('/dashboard', verifyToken, requireRole(UserRole.ADMIN), getDashboard);
+```
+
+**4.** Read the user in your controller:
+```typescript
+const { userId, role, email } = req.user!;
+```
+
+## Error responses
+
+All errors follow this shape:
 ```json
 {
-  "scripts": {
-    "dev": "ts-node-dev --respawn src/main.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/main.js"
-  }
+  "success": false,
+  "message": "Human readable message",
+  "errors": []   // only on validation failures
 }
 ```
-
-### Step 4 — Create `.env` (local dev only — never commit)
-
-```env
-PORT=8081
-NODE_ENV=development
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=arogya_auth
-DB_USER=arogya
-DB_PASSWORD=arogya_secret
-JWT_SECRET=your-dev-secret-min-256-bits
-JWT_EXPIRY=86400
-REFRESH_TOKEN_EXPIRY=604800
-KAFKA_BROKER=localhost:9093
-KAFKA_TOPIC_USER_REGISTERED=auth.user.registered
-KAFKA_TOPIC_USER_LOGGEDIN=auth.user.loggedin
+src/middleware/auth.middleware.ts
+src/types/auth.types.ts        ← interfaces only, not the models
 ```
 
-### Step 5 — Create `src/main.ts`
+**2.** Add to your `.env`:
 
-- Fastify server with JWT and cookie plugins
-- Register routes: `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`
-- Connect to PostgreSQL using `pg` client or `knex`
-- Produce Kafka events on register and login
-- Listen on `PORT`
+| Status | Meaning |
+|--------|---------|
+| 401 | Missing, expired, or invalid token |
+| 403 | Valid token but wrong role |
+| 409 | Email already registered |
+| 422 | Validation failed (see `errors` array) |
+| 429 | Rate limit exceeded |
+| 500 | Internal server error |
 
-### Step 6 — Build and Dockerize
+## Testing
 
-```bash
-npm run build
-docker build -t arogya/auth-service:latest .
-```
+Import `postman_collection.json` into Postman.
+Run **Register** first — the collection auto-saves your tokens.
 
----
+## Phase 4 integration points
 
-## Kafka Events
-
-| Event           | Topic                  | Trigger             | Consumers            |
-| --------------- | ---------------------- | ------------------- | -------------------- |
-| User registered | `auth.user.registered` | POST /auth/register | notification-service |
-| User logged in  | `auth.user.loggedin`   | POST /auth/login    | (audit / analytics)  |
-
----
-
-## Database Ownership
-
-- This service owns the `arogya_auth` PostgreSQL database exclusively.
-- No other service reads or writes to `arogya_auth` directly.
-- Other services verify user identity by validating JWTs using the shared public key.
-
----
-
-## Environment Variables
-
-| Variable                      | Required | Description                                |
-| ----------------------------- | -------- | ------------------------------------------ |
-| `PORT`                        | Yes      | `8081`                                     |
-| `NODE_ENV`                    | Yes      | Runtime environment                        |
-| `DB_HOST`                     | Yes      | `postgres` (Docker) or `localhost`         |
-| `DB_PORT`                     | Yes      | `5432`                                     |
-| `DB_NAME`                     | Yes      | `arogya_auth`                              |
-| `DB_USER`                     | Yes      | `arogya`                                   |
-| `DB_PASSWORD`                 | Yes      | Database password                          |
-| `JWT_SECRET`                  | Yes      | Min 256-bit secret for token signing       |
-| `JWT_EXPIRY`                  | Yes      | Access token TTL in seconds (e.g. `86400`) |
-| `REFRESH_TOKEN_EXPIRY`        | Yes      | Refresh token TTL in seconds               |
-| `KAFKA_BROKER`                | Yes      | `kafka:9092`                               |
-| `KAFKA_TOPIC_USER_REGISTERED` | No       | `auth.user.registered`                     |
-| `KAFKA_TOPIC_USER_LOGGEDIN`   | No       | `auth.user.loggedin`                       |
-
----
-
-## Port Reference
-
-| Service                    | Port |
-| -------------------------- | ---- |
-| api-service                | 8080 |
-| auth-service               | 8081 |
-| patient-service            | 8082 |
-| doctor-service             | 8083 |
-| appointment-service        | 8084 |
-| prescription-service       | 8085 |
-| telemedicine-service       | 8086 |
-| payment-service            | 8087 |
-| notification-service       | 8088 |
-| ai-symptom-checker-service | 8089 |
-
----
-
-## Naming Conventions
-
-- Service name: `auth-service`
-- Docker image: `arogya/auth-service:latest`
-- Kubernetes service: `auth-service-svc`
-- Kubernetes deployment: `auth-service-deployment`
-- Namespace: `arogya`
+- `forgotPassword()` in `auth.service.ts` → swap console.log for Notification Service call
+- Password reset email template → coordinate with Notification Service teammate
