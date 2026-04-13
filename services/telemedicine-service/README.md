@@ -1,6 +1,6 @@
 ﻿# Telemedicine Service
 
-Express + TypeScript microservice for consultation session lifecycle.
+Express + TypeScript microservice for telemedicine room and meeting lifecycle.
 
 ## Stack
 
@@ -60,6 +60,8 @@ src/
 
 See `.env.example` for all required values.
 
+For Jitsi integration, configure `JITSI_BASE_URL` (default `https://meet.jit.si`). Room creation returns Jitsi metadata (`roomKey`, `jitsiRoomName`, `jitsiRoomUrl`) for frontend use.
+
 ## Run locally
 
 ```bash
@@ -78,4 +80,19 @@ pnpm start
 ## API base path
 
 - Health: `GET /api/v1/health`
-- Consultation routes: `GET|POST|PATCH /api/v1/consultations`
+- Room routes:
+  - `POST /api/v1/consultations/rooms`
+  - `PATCH /api/v1/consultations/rooms/:roomKey/reopen`
+- Meeting routes:
+  - `GET /api/v1/consultations`
+  - `GET /api/v1/consultations/:id`
+  - `POST /api/v1/consultations`
+  - `PATCH /api/v1/consultations/:id/status`
+
+## Room lifecycle
+
+- One room is created per doctor and patient pair.
+- A room can host multiple scheduled meetings.
+- Meeting identity is appointment-based (`appointmentId` is unique).
+- Only doctor callers can start a meeting (`PATCH .../status` with `active`).
+- Expired rooms reject meeting scheduling/start until explicitly reopened.
