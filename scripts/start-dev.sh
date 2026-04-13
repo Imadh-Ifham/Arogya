@@ -5,6 +5,65 @@
 # =============================================================================
 # Usage: bash scripts/start-dev.sh
 # Requires: Docker, Docker Compose
+# What this script runs:
+#   1. docker compose -f infrastructure/docker/docker-compose.dev.yml -p arogya pull --ignore-pull-failures
+#   2. docker compose -f infrastructure/docker/docker-compose.dev.yml -p arogya up -d \
+#        postgres mongodb zookeeper kafka kafka-ui
+#   3. docker inspect --format='{{.State.Health.Status}}' arogya-<service>
+# Notes:
+#   - This starts shared infrastructure only.
+#   - It does not start patient-service or any other application container.
+# =============================================================================
+
+set -euo pipefail
+
+COMPOSE_FILE="infrastructure/docker/docker-compose.dev.yml"
+PROJECT_NAME="arogya"
+
+# -- Colour helpers --
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+log_info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
+log_ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
+log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+
+# -- Check prerequisites --
+if ! command -v docker &>/dev/null; then
+  echo "[ERROR] Docker is not installed or not in PATH. Aborting."
+  exit 1
+fi
+
+if ! docker info &>/dev/null; then
+  echo "[ERROR] Docker daemon is not running. Start Docker and retry."
+  exit 1
+fi
+
+# -- Resolve script to repo root --
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${REPO_ROOT}"
+
+log_info "Starting Arogya local dev environment..."
+log_info "Compose file: ${COMPOSE_FILE}"
+echo ""
+
+# -- Pull latest images silently --
+# Exact command:
+# docker compose -f "${COMPOSE_FILE}" -p "${PROJECT_NAME}" pull --ignore-pull-failures
+log_info "Pulling latest infrastructure images..."
+docker compose -f "${COMPOSE_FILE}" -p "${PROJECT_NAME}" pull --ignore-pull-failures 2>/dev/null || true
+
+# -- Start infrastructure --
+#!/usr/bin/env bash
+# =============================================================================
+# Arogya — start-dev.sh
+# Start the full local development infrastructure.
+# =============================================================================
+# Usage: bash scripts/start-dev.sh
+# Requires: Docker, Docker Compose
 # =============================================================================
 
 set -euo pipefail
