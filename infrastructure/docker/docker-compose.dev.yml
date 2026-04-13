@@ -353,6 +353,33 @@ services:
   #     - arogya-net
 
   # -------------------------------------------------------------------------
+  # AI Symptom Checker Service — Port 8089
+  # -------------------------------------------------------------------------
+  ai-symptom-checker-service:
+    image: arogya/ai-symptom-checker-service:latest
+    container_name: arogya-ai-symptom-checker
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      PORT: 8089
+      NODE_ENV: production
+      MONGO_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_ai?authSource=admin
+      JWT_SECRET: ${JWT_SECRET}
+      AI_API_KEY: ${AI_API_KEY}
+      AI_API_ENDPOINT: ${AI_API_ENDPOINT}
+      AI_MODEL: ${AI_MODEL}
+    ports:
+      - "8089:8089"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8089/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
   # Patient Service - Port 8082
   # -------------------------------------------------------------------------
   patient-service:
