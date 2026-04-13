@@ -7,24 +7,22 @@ import org.springframework.stereotype.Component;
 @Component
 public class AuthUserIdResolver {
 
-    public static final String AUTH_USER_ID_HEADER = "x-auth-user-id";
+    public static final String AUTH_USER_ID_HEADER = "x-user-id";
+    public static final String AUTH_USER_ROLE_HEADER = "x-user-role";
 
     public UUID resolveRequired(UUID headerAuthUserId) {
         if (headerAuthUserId == null) {
             throw new MissingAuthUserIdException(
-                    "Missing auth user id. Provide x-auth-user-id header.");
+                    "Missing required header: x-user-id");
         }
         return headerAuthUserId;
     }
 
-    public UUID resolveForCreate(UUID headerAuthUserId, UUID requestAuthUserId) {
-        if (headerAuthUserId != null) {
-            return headerAuthUserId;
+    public String resolveRole(String role) {
+        if (role == null || role.isBlank()) {
+            throw new MissingAuthUserIdException(
+                    "Missing required header: x-user-role");
         }
-        if (requestAuthUserId != null) {
-            return requestAuthUserId;
-        }
-        throw new MissingAuthUserIdException(
-                "Missing auth user id. Provide x-auth-user-id header or authUserId in request body.");
+        return role;
     }
 }

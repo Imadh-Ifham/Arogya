@@ -1,7 +1,12 @@
 package com.arogya.patient.controller;
 
+import com.arogya.patient.client.PrescriptionClient;
+import com.arogya.patient.domain.Patient;
+import com.arogya.patient.dto.ApiResponse;
+import com.arogya.patient.dto.PatientDashboardResponse;
 import com.arogya.patient.dto.PatientDocumentResponse;
 import com.arogya.patient.dto.PatientProfileResponse;
+import com.arogya.patient.dto.PrescriptionDto;
 import com.arogya.patient.dto.CreatePatientProfileRequest;
 import com.arogya.patient.dto.UpdatePatientProfileRequest;
 import com.arogya.patient.service.PatientDocumentService;
@@ -30,78 +35,134 @@ public class PatientController {
 
     private final PatientService patientService;
     private final PatientDocumentService patientDocumentService;
+    private final PrescriptionClient prescriptionClient;
     private final AuthUserIdResolver authUserIdResolver;
 
     public PatientController(
             PatientService patientService,
             PatientDocumentService patientDocumentService,
+            PrescriptionClient prescriptionClient,
             AuthUserIdResolver authUserIdResolver) {
         this.patientService = patientService;
         this.patientDocumentService = patientDocumentService;
+        this.prescriptionClient = prescriptionClient;
         this.authUserIdResolver = authUserIdResolver;
     }
 
+    // ── Profile ───────────────────────────────────────────────────────────────
+
     @PostMapping("/profile")
-    public ResponseEntity<PatientProfileResponse> createProfile(
-            @RequestHeader(value = AuthUserIdResolver.AUTH_USER_ID_HEADER, required = false) UUID headerAuthUserId,
+    public ResponseEntity<ApiResponse<PatientProfileResponse>> createProfile(
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID headerAuthUserId,
             @Valid @RequestBody CreatePatientProfileRequest request) {
-        request.setAuthUserId(authUserIdResolver.resolveForCreate(headerAuthUserId, request.getAuthUserId()));
+        request.setAuthUserId(authUserIdResolver.resolveRequired(headerAuthUserId));
         PatientProfileResponse response = patientService.createPatientProfile(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     @GetMapping("/profile/me")
-    public ResponseEntity<PatientProfileResponse> getOwnProfile(
+    public ResponseEntity<ApiResponse<PatientProfileResponse>> getOwnProfile(
             @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
-        return ResponseEntity.ok(patientService.getPatientProfileByAuthUserId(authUserIdResolver.resolveRequired(authUserId)));
+        PatientProfileResponse response = patientService.getPatientProfileByAuthUserId(
+                authUserIdResolver.resolveRequired(authUserId));
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/profile/{authUserId}")
-    public ResponseEntity<PatientProfileResponse> getProfile(@PathVariable UUID authUserId) {
-        return ResponseEntity.ok(patientService.getPatientProfileByAuthUserId(authUserId));
+    public ResponseEntity<ApiResponse<PatientProfileResponse>> getProfile(@PathVariable UUID authUserId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                patientService.getPatientProfileByAuthUserId(authUserId)));
     }
 
     @PutMapping("/profile/me")
-    public ResponseEntity<PatientProfileResponse> updateOwnProfile(
+    public ResponseEntity<ApiResponse<PatientProfileResponse>> updateOwnProfile(
             @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId,
             @Valid @RequestBody UpdatePatientProfileRequest request) {
-        return ResponseEntity.ok(patientService.updatePatientProfile(authUserIdResolver.resolveRequired(authUserId), request));
+        PatientProfileResponse response = patientService.updatePatientProfile(
+                authUserIdResolver.resolveRequired(authUserId), request);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PutMapping("/profile/{authUserId}")
-    public ResponseEntity<PatientProfileResponse> updateProfile(
+    public ResponseEntity<ApiResponse<PatientProfileResponse>> updateProfile(
             @PathVariable UUID authUserId,
             @Valid @RequestBody UpdatePatientProfileRequest request) {
-        return ResponseEntity.ok(patientService.updatePatientProfile(authUserId, request));
+        return ResponseEntity.ok(ApiResponse.success(
+                patientService.updatePatientProfile(authUserId, request)));
     }
 
+    // ── Documents ─────────────────────────────────────────────────────────────
+
     @PostMapping(path = "/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<PatientDocumentResponse> uploadOwnDocument(
+    public ResponseEntity<ApiResponse<PatientDocumentResponse>> uploadOwnDocument(
             @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId,
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "description", required = false) String description) {
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "documentType", required = false) String documentType) {
         PatientDocumentResponse response = patientDocumentService.uploadDocument(
-                authUserIdResolver.resolveRequired(authUserId), file, description);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+                authUserIdResolver.resolveRequired(authUserId), file, description, documentType);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     @PostMapping(path = "/documents/{authUserId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<PatientDocumentResponse> uploadDocument(
+    public ResponseEntity<ApiResponse<PatientDocumentResponse>> uploadDocument(
             @PathVariable UUID authUserId,
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "description", required = false) String description) {
-        PatientDocumentResponse response = patientDocumentService.uploadDocument(authUserId, file, description);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "documentType", required = false) String documentType) {
+        PatientDocumentResponse response = patientDocumentService.uploadDocument(
+                authUserId, file, description, documentType);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     @GetMapping("/documents")
-    public ResponseEntity<List<PatientDocumentResponse>> getOwnDocuments(
-            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
-        return ResponseEntity.ok(patientDocumentService.getPatientDocuments(authUserIdResolver.resolveRequired(authUserId)));
+    public ResponseEntity<ApiResponse<List<PatientDocumentResponse>>> getOwnDocuments(
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to) {
+        List<PatientDocumentResponse> docs = patientDocumentService.getPatientDocuments(
+                authUserIdResolver.resolveRequired(authUserId), type, from, to);
+        return ResponseEntity.ok(ApiResponse.success(docs));
     }
 
     @GetMapping("/documents/{authUserId}")
-    public ResponseEntity<List<PatientDocumentResponse>> getDocuments(@PathVariable UUID authUserId) {
-        return ResponseEntity.ok(patientDocumentService.getPatientDocuments(authUserId));
+    public ResponseEntity<ApiResponse<List<PatientDocumentResponse>>> getDocuments(
+            @PathVariable UUID authUserId,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to) {
+        return ResponseEntity.ok(ApiResponse.success(
+                patientDocumentService.getPatientDocuments(authUserId, type, from, to)));
+    }
+
+    // ── Prescriptions ─────────────────────────────────────────────────────────
+
+    @GetMapping("/me/prescriptions")
+    public ResponseEntity<ApiResponse<List<PrescriptionDto>>> getOwnPrescriptions(
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
+        Patient patient = patientService.getPatientByAuthUserId(
+                authUserIdResolver.resolveRequired(authUserId));
+        List<PrescriptionDto> prescriptions = prescriptionClient.getPrescriptionsForPatient(patient.getId());
+        return ResponseEntity.ok(ApiResponse.success(prescriptions));
+    }
+
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+
+    @GetMapping("/me/dashboard")
+    public ResponseEntity<ApiResponse<PatientDashboardResponse>> getOwnDashboard(
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
+        UUID resolvedUserId = authUserIdResolver.resolveRequired(authUserId);
+
+        // Fetch patient entity once — reused across all three data sources
+        Patient patient = patientService.getPatientByAuthUserId(resolvedUserId);
+
+        PatientProfileResponse profile = patientService.getPatientProfileByAuthUserId(resolvedUserId);
+        List<PatientDocumentResponse> documents = patientDocumentService.getPatientDocuments(
+                resolvedUserId, null, null, null);
+        List<PrescriptionDto> prescriptions = prescriptionClient.getPrescriptionsForPatient(patient.getId());
+
+        PatientDashboardResponse dashboard = new PatientDashboardResponse(profile, documents, prescriptions);
+        return ResponseEntity.ok(ApiResponse.success(dashboard));
     }
 }

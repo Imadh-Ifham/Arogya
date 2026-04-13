@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public class CreatePatientProfileRequest {
 
+    // Set by the controller from x-user-id header — never from the request body.
     private UUID authUserId;
 
     @NotNull

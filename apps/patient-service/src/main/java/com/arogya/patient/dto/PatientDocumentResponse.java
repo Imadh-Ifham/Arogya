@@ -7,6 +7,7 @@ public class PatientDocumentResponse {
 
     private UUID id;
     private String fileUrl;
+    private String documentType;
     private String description;
     private LocalDateTime uploadedAt;
 
@@ -24,6 +25,14 @@ public class PatientDocumentResponse {
 
     public void setFileUrl(String fileUrl) {
         this.fileUrl = fileUrl;
+    }
+
+    public String getDocumentType() {
+        return documentType;
+    }
+
+    public void setDocumentType(String documentType) {
+        this.documentType = documentType;
     }
 
     public String getDescription() {

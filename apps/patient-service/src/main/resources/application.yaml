@@ -24,3 +24,7 @@ spring:
 patient:
   storage:
     upload-dir: ${PATIENT_STORAGE_UPLOAD_DIR:uploads}
+
+services:
+  prescription:
+    url: ${PRESCRIPTION_SERVICE_URL:http://localhost:8085}

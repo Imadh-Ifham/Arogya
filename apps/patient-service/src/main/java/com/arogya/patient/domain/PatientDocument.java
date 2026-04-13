@@ -28,6 +28,9 @@ public class PatientDocument {
     @Column(name = "file_url", nullable = false)
     private String fileUrl;
 
+    @Column(name = "document_type")
+    private String documentType;
+
     @Column(name = "description")
     private String description;
 
@@ -63,6 +66,14 @@ public class PatientDocument {
 
     public void setFileUrl(String fileUrl) {
         this.fileUrl = fileUrl;
+    }
+
+    public String getDocumentType() {
+        return documentType;
+    }
+
+    public void setDocumentType(String documentType) {
+        this.documentType = documentType;
     }
 
     public String getDescription() {
