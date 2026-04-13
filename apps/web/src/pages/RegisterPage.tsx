@@ -40,7 +40,7 @@ export default function RegisterPage() {
   const [clientError, setClientError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (accessToken) navigate("/appointments", { replace: true });
+    if (accessToken) navigate("/appointments", { replace: true }); // already logged in before landing here
   }, [accessToken, navigate]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -96,7 +96,7 @@ export default function RegisterPage() {
       }
     }
 
-    navigate("/appointments", { replace: true });
+    navigate(role === "doctor" ? "/doctor/dashboard" : "/appointments", { replace: true });
   };
 
   return (

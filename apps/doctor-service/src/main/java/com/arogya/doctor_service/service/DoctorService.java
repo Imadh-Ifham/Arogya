@@ -87,6 +87,25 @@ public class DoctorService {
         return doctorRepository.save(doctor);
     }
 
+    // 7b. Upsert — creates the doctor entity if one does not exist yet, then applies updates.
+    //     Used by PUT /me so a doctor with no existing record can save their profile.
+    public Doctor upsertDoctorProfile(String authUserId, Doctor updates) {
+        Doctor doctor = doctorRepository.findByAuthUserId(authUserId).orElseGet(() -> {
+            Doctor fresh = new Doctor();
+            fresh.setAuthUserId(authUserId);
+            fresh.setVerificationStatus(VerificationStatus.PENDING);
+            return doctorRepository.save(fresh);
+        });
+        if (updates.getSpecialty() != null)       doctor.setSpecialty(updates.getSpecialty());
+        if (updates.getBio() != null)              doctor.setBio(updates.getBio());
+        if (updates.getConsultationFee() != null)  doctor.setConsultationFee(updates.getConsultationFee());
+        if (updates.getQualifications() != null)   doctor.setQualifications(updates.getQualifications());
+        if (updates.getLanguages() != null)        doctor.setLanguages(updates.getLanguages());
+        if (updates.getName() != null)             doctor.setName(updates.getName());
+        if (updates.getLicenseNumber() != null)    doctor.setLicenseNumber(updates.getLicenseNumber());
+        return doctorRepository.save(doctor);
+    }
+
     // 8. Get availability templates for a doctor
     public List<AvailabilityTemplate> getAvailability(Long doctorId) {
         getDoctorProfile(doctorId); // ensure doctor exists

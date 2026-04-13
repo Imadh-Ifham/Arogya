@@ -15,11 +15,13 @@ export const fetchDoctors = createAsyncThunk<Doctor[], string | undefined, { rej
   async (specialty, { rejectWithValue }) => {
     try {
       const profiles = await searchDoctors(specialty ? { specialty, status: "APPROVED" } : { status: "APPROVED" });
-      return profiles.map((p) => ({
-        id: p.id,
-        name: p.name ?? "",
-        specialization: p.specialty ?? "",
-      }));
+      return profiles
+        .filter((p) => p.id != null)
+        .map((p) => ({
+          id: p.id as string,
+          name: p.name ?? "",
+          specialization: p.specialty ?? "",
+        }));
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message ?? "Failed to load doctors");
     }

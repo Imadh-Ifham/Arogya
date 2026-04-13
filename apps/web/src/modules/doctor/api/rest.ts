@@ -2,7 +2,7 @@ import api from "../../../lib/api";
 
 // Matches DoctorSummaryDto returned by GET /api/doctors and GET /api/doctors/me
 export interface DoctorProfile {
-  id: string;
+  id?: string | null;   // null when no doctor-service record exists yet (stub 200 from GET /me)
   authUserId: string;
   name: string;
   specialty?: string;

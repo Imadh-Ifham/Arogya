@@ -51,9 +51,11 @@ public class DoctorController {
     }
 
     /**
-     * GET /api/doctors/me — returns the profile of the currently authenticated doctor.
-     * Requires x-user-id header injected by the API gateway.
-     * NOTE: This must be declared before /{id} so "me" is not treated as a path variable.
+     * GET /api/doctors/me — returns the authenticated doctor's profile.
+     * If no doctor entity exists yet for this auth user (e.g. registerDoctor silently failed
+     * during sign-up), returns a 200 with a stub DTO so the frontend can still display the
+     * profile form. The doctor can then save via PUT /me which will create the record.
+     * NOTE: Must be declared before /{id} so "me" is not treated as a path variable.
      */
     @GetMapping("/me")
     public ResponseEntity<?> getMyProfile(
@@ -62,13 +64,17 @@ public class DoctorController {
             return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
         }
         return doctorService.getDoctorByAuthUserId(authUserId)
-                .map(doctor -> ResponseEntity.ok(DoctorSummaryDto.from(doctor)))
-                .orElse(ResponseEntity.notFound().build());
+                .map(doctor -> ResponseEntity.<Object>ok(DoctorSummaryDto.from(doctor)))
+                // Return a stub 200 (not 404) so the profile page still loads.
+                // id=null signals "not yet registered in doctor service".
+                .orElseGet(() -> ResponseEntity.ok(
+                        new DoctorSummaryDto(null, authUserId, null, null, null, null, null, null, "PENDING", 0.0)
+                ));
     }
 
     /**
-     * PUT /api/doctors/me — updates the currently authenticated doctor's profile.
-     * Requires x-user-id header injected by the API gateway.
+     * PUT /api/doctors/me — upserts the authenticated doctor's profile.
+     * Creates the doctor entity if it doesn't exist yet, then applies the provided fields.
      */
     @PutMapping("/me")
     public ResponseEntity<?> updateMyProfile(
@@ -77,11 +83,8 @@ public class DoctorController {
         if (authUserId == null || authUserId.isBlank()) {
             return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
         }
-        return doctorService.getDoctorByAuthUserId(authUserId)
-                .map(doctor -> ResponseEntity.ok(
-                        DoctorSummaryDto.from(doctorService.updateDoctorProfile(doctor.getId(), updates))
-                ))
-                .orElse(ResponseEntity.notFound().build());
+        Doctor saved = doctorService.upsertDoctorProfile(authUserId, updates);
+        return ResponseEntity.ok(DoctorSummaryDto.from(saved));
     }
 
     @GetMapping("/{id}")
