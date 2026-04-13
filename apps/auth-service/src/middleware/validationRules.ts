@@ -32,9 +32,8 @@ export const registerRules = [
     .withMessage("First name cannot exceed 50 characters"),
 
   body("lastName")
+    .optional({ nullable: true, checkFalsy: true })
     .trim()
-    .notEmpty()
-    .withMessage("Last name is required")
     .isLength({ max: 50 })
     .withMessage("Last name cannot exceed 50 characters"),
 

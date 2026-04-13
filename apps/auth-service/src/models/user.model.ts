@@ -30,7 +30,7 @@ const userSchema = new Schema<IUser>(
     },
     lastName: {
       type: String,
-      required: [true, "Last name is required"],
+      required: false,
       trim: true,
       maxlength: [50, "Last name cannot exceed 50 characters"],
     },

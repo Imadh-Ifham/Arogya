@@ -76,7 +76,16 @@ router.use(
   proxy(env.services.appointment, appointmentRewrite)
 );
 
-// ─── Doctor routes (GET public, write protected) ──────────────────────────────
+// ─── Doctor routes ─────────────────────────────────────────────────────────────
+// POST /api/doctors/register is protected so the gateway injects x-user-id.
+// All other doctor routes (GET list, GET profile) remain public.
+router.post(
+  '/api/doctors/register',
+  stripUserHeaders,
+  verifyToken,
+  proxy(env.services.doctor, doctorRewrite)
+);
+
 router.use(
   '/api/doctors',
   stripUserHeaders,
