@@ -21,6 +21,7 @@ export interface RegisterPayload {
   role: "patient" | "doctor" | "admin";
   firstName?: string;
   lastName?: string;
+  phoneNumber?: string;
 }
 
 export interface LoginPayload {

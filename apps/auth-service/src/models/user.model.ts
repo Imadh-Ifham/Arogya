@@ -34,6 +34,11 @@ const userSchema = new Schema<IUser>(
       trim: true,
       maxlength: [50, "Last name cannot exceed 50 characters"],
     },
+    phoneNumber: {
+      type: String,
+      trim: true,
+      maxlength: [30, "Phone number cannot exceed 30 characters"],
+    },
     isActive: {
       type: Boolean,
       default: true,

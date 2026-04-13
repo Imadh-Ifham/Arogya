@@ -11,6 +11,10 @@ import SlotsPage from "../pages/SlotsPage";
 import BookPage from "../pages/BookPage";
 import AppointmentsPage from "../pages/AppointmentsPage";
 import AppointmentDetailPage from "../pages/AppointmentDetailPage";
+import PatientProfilePage from "../pages/PatientProfilePage";
+import DoctorSearchPage from "../pages/DoctorSearchPage";
+import SymptomCheckerPage from "../pages/SymptomCheckerPage";
+import ConsultationPage from "../pages/ConsultationPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HomePage from "../pages/HomePage";
 
@@ -40,6 +44,7 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/slots" element={<SlotsPage />} />
+      <Route path="/search" element={<DoctorSearchPage />} />
 
       {/* Protected */}
       <Route
@@ -63,6 +68,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AppointmentDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/appointments/:id/consultation"
+        element={
+          <ProtectedRoute>
+            <ConsultationPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <PatientProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/symptom-checker"
+        element={
+          <ProtectedRoute>
+            <SymptomCheckerPage />
           </ProtectedRoute>
         }
       />

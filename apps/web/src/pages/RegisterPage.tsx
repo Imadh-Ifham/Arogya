@@ -1,12 +1,25 @@
-import { useMemo, useState, type FormEvent, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { registerThunk } from "../store/auth/auth.thunk";
-import { fetchMeThunk } from "../store/auth/auth.thunk";
+import { registerThunk, fetchMeThunk } from "../store/auth/auth.thunk";
 import { clearAuthError } from "../store/auth/auth.slice";
+import { registerDoctor } from "../modules/doctor/api/rest";
 import { Activity, Eye, EyeOff } from "lucide-react";
 
 type Role = "patient" | "doctor" | "admin";
+
+const SPECIALTIES = [
+  "Cardiology",
+  "Dermatology",
+  "Neurology",
+  "Orthopedics",
+  "Pediatrics",
+  "Psychiatry",
+  "General Medicine",
+  "ENT",
+  "Ophthalmology",
+  "Gynecology",
+];
 
 export default function RegisterPage() {
   const dispatch = useAppDispatch();
@@ -21,6 +34,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [licenseNo, setLicenseNo] = useState("");
+  const [specialty, setSpecialty] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [clientError, setClientError] = useState<string | null>(null);
@@ -29,11 +43,17 @@ export default function RegisterPage() {
     if (accessToken) navigate("/appointments", { replace: true });
   }, [accessToken, navigate]);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setClientError(null);
+
     if (password !== confirmPassword) {
       setClientError("Passwords do not match");
+      return;
+    }
+
+    if (role === "doctor" && !specialty) {
+      setClientError("Please select your specialty");
       return;
     }
 
@@ -42,19 +62,41 @@ export default function RegisterPage() {
     const lastName = parts.slice(1).join(" ") || undefined;
 
     dispatch(clearAuthError());
-    const result = await dispatch(
+
+    // Step 1: Create auth account
+    const authResult = await dispatch(
       registerThunk({
         email,
         password,
         role: role as Role,
         firstName: firstName || undefined,
         lastName,
+        phoneNumber: phoneNumber || undefined,
       }),
     );
-    if (registerThunk.fulfilled.match(result)) {
-      await dispatch(fetchMeThunk());
-      navigate("/appointments", { replace: true });
+
+    if (!registerThunk.fulfilled.match(authResult)) return;
+
+    // Step 2: Fetch user profile (needed to get the userId for doctor registration)
+    const meResult = await dispatch(fetchMeThunk());
+
+    // Step 3: For doctors, create the doctor profile in the doctor service
+    if (role === "doctor") {
+      const userId = fetchMeThunk.fulfilled.match(meResult) ? meResult.payload._id : undefined;
+      try {
+        await registerDoctor({
+          name: fullName.trim(),
+          specialty,
+          licenseNumber: licenseNo || undefined,
+          ...(userId && { authUserId: userId }),
+        });
+      } catch {
+        // Auth account was created successfully. Doctor profile creation failed
+        // (e.g. doctor service is down). User can retry from their profile page.
+      }
     }
+
+    navigate("/appointments", { replace: true });
   };
 
   return (
@@ -125,15 +167,33 @@ export default function RegisterPage() {
             </div>
 
             {role === "doctor" && (
-              <div>
-                <label className="text-sm text-foreground block mb-1.5">NIC / Medical License No.</label>
-                <input
-                  value={licenseNo}
-                  onChange={(e) => setLicenseNo(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="Enter license number"
-                />
-              </div>
+              <>
+                <div>
+                  <label className="text-sm text-foreground block mb-1.5">
+                    Specialty <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Select specialty…</option>
+                    {SPECIALTIES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm text-foreground block mb-1.5">Medical License No.</label>
+                  <input
+                    value={licenseNo}
+                    onChange={(e) => setLicenseNo(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Enter license number"
+                  />
+                </div>
+              </>
             )}
 
             <div>

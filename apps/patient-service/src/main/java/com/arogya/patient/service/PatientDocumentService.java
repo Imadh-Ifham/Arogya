@@ -40,7 +40,7 @@ public class PatientDocumentService {
 
     @Transactional
     public PatientDocumentResponse uploadDocument(
-            UUID authUserId, MultipartFile file, String description, String documentType) {
+            String authUserId, MultipartFile file, String description, String documentType) {
         Patient patient = patientService.getPatientByAuthUserId(authUserId);
         String effectiveType = (documentType != null && !documentType.isBlank()) ? documentType : "general";
         String relativeFileUrl = storeFile(patient.getId(), file, effectiveType);
@@ -57,7 +57,7 @@ public class PatientDocumentService {
 
     @Transactional(readOnly = true)
     public List<PatientDocumentResponse> getPatientDocuments(
-            UUID authUserId, String type, String fromStr, String toStr) {
+            String authUserId, String type, String fromStr, String toStr) {
         Patient patient = patientService.getPatientByAuthUserId(authUserId);
         LocalDateTime from = parseDateTime(fromStr, "from");
         LocalDateTime to = parseDateTime(toStr, "to");

@@ -1,7 +1,5 @@
 package com.arogya.patient.web;
 
-import java.util.UUID;
-
 import org.springframework.stereotype.Component;
 
 import com.arogya.patient.exception.MissingAuthUserIdException;
@@ -12,8 +10,8 @@ public class AuthUserIdResolver {
     public static final String AUTH_USER_ID_HEADER = "x-user-id";
     public static final String AUTH_USER_ROLE_HEADER = "x-user-role";
 
-    public UUID resolveRequired(UUID headerAuthUserId) {
-        if (headerAuthUserId == null) {
+    public String resolveRequired(String headerAuthUserId) {
+        if (headerAuthUserId == null || headerAuthUserId.isBlank()) {
             throw new MissingAuthUserIdException(
                     "Missing required header: x-user-id");
         }

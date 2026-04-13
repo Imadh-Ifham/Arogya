@@ -1,158 +1,87 @@
 package com.arogya.patient.dto;
 
 import java.time.LocalDate;
-import java.util.UUID;
-
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 public class CreatePatientProfileRequest {
 
     // Set by the controller from x-user-id header — never from the request body.
-    private UUID authUserId;
+    private String authUserId;
 
-    @NotNull
+    private String firstName;
+    private String lastName;
+    private String phoneNumber;
+
     private LocalDate dateOfBirth;
-
-    @NotBlank
     private String gender;
-
     private String bloodGroup;
-
     private Integer heightCm;
-
     private Integer weightKg;
 
-    @NotBlank
-    private String streetAddress;
-
-    @NotBlank
+    // Frontend sends a single address string; stored as streetAddress
+    private String address;
     private String city;
 
-    @NotBlank
     private String emergencyContactName;
-
-    @NotBlank
     private String emergencyContactPhone;
-
-    @NotBlank
     private String emergencyContactRelationship;
 
-    private String knownAllergies;
+    // Frontend sends a List<String>; stored as comma-joined knownAllergies
+    private List<String> allergies;
 
     private String medicalConditions;
-
     private String currentMedications;
 
-    public UUID getAuthUserId() {
-        return authUserId;
-    }
+    // ── Getters / Setters ─────────────────────────────────────────────────────
 
-    public void setAuthUserId(UUID authUserId) {
-        this.authUserId = authUserId;
-    }
+    public String getAuthUserId() { return authUserId; }
+    public void setAuthUserId(String authUserId) { this.authUserId = authUserId; }
 
-    public LocalDate getDateOfBirth() {
-        return dateOfBirth;
-    }
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
 
-    public void setDateOfBirth(LocalDate dateOfBirth) {
-        this.dateOfBirth = dateOfBirth;
-    }
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
 
-    public String getGender() {
-        return gender;
-    }
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
-    public void setGender(String gender) {
-        this.gender = gender;
-    }
+    public LocalDate getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
 
-    public String getBloodGroup() {
-        return bloodGroup;
-    }
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
 
-    public void setBloodGroup(String bloodGroup) {
-        this.bloodGroup = bloodGroup;
-    }
+    public String getBloodGroup() { return bloodGroup; }
+    public void setBloodGroup(String bloodGroup) { this.bloodGroup = bloodGroup; }
 
-    public Integer getHeightCm() {
-        return heightCm;
-    }
+    public Integer getHeightCm() { return heightCm; }
+    public void setHeightCm(Integer heightCm) { this.heightCm = heightCm; }
 
-    public void setHeightCm(Integer heightCm) {
-        this.heightCm = heightCm;
-    }
+    public Integer getWeightKg() { return weightKg; }
+    public void setWeightKg(Integer weightKg) { this.weightKg = weightKg; }
 
-    public Integer getWeightKg() {
-        return weightKg;
-    }
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
 
-    public void setWeightKg(Integer weightKg) {
-        this.weightKg = weightKg;
-    }
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
 
-    public String getStreetAddress() {
-        return streetAddress;
-    }
+    public String getEmergencyContactName() { return emergencyContactName; }
+    public void setEmergencyContactName(String emergencyContactName) { this.emergencyContactName = emergencyContactName; }
 
-    public void setStreetAddress(String streetAddress) {
-        this.streetAddress = streetAddress;
-    }
+    public String getEmergencyContactPhone() { return emergencyContactPhone; }
+    public void setEmergencyContactPhone(String emergencyContactPhone) { this.emergencyContactPhone = emergencyContactPhone; }
 
-    public String getCity() {
-        return city;
-    }
+    public String getEmergencyContactRelationship() { return emergencyContactRelationship; }
+    public void setEmergencyContactRelationship(String emergencyContactRelationship) { this.emergencyContactRelationship = emergencyContactRelationship; }
 
-    public void setCity(String city) {
-        this.city = city;
-    }
+    public List<String> getAllergies() { return allergies; }
+    public void setAllergies(List<String> allergies) { this.allergies = allergies; }
 
-    public String getEmergencyContactName() {
-        return emergencyContactName;
-    }
+    public String getMedicalConditions() { return medicalConditions; }
+    public void setMedicalConditions(String medicalConditions) { this.medicalConditions = medicalConditions; }
 
-    public void setEmergencyContactName(String emergencyContactName) {
-        this.emergencyContactName = emergencyContactName;
-    }
-
-    public String getEmergencyContactPhone() {
-        return emergencyContactPhone;
-    }
-
-    public void setEmergencyContactPhone(String emergencyContactPhone) {
-        this.emergencyContactPhone = emergencyContactPhone;
-    }
-
-    public String getEmergencyContactRelationship() {
-        return emergencyContactRelationship;
-    }
-
-    public void setEmergencyContactRelationship(String emergencyContactRelationship) {
-        this.emergencyContactRelationship = emergencyContactRelationship;
-    }
-
-    public String getKnownAllergies() {
-        return knownAllergies;
-    }
-
-    public void setKnownAllergies(String knownAllergies) {
-        this.knownAllergies = knownAllergies;
-    }
-
-    public String getMedicalConditions() {
-        return medicalConditions;
-    }
-
-    public void setMedicalConditions(String medicalConditions) {
-        this.medicalConditions = medicalConditions;
-    }
-
-    public String getCurrentMedications() {
-        return currentMedications;
-    }
-
-    public void setCurrentMedications(String currentMedications) {
-        this.currentMedications = currentMedications;
-    }
+    public String getCurrentMedications() { return currentMedications; }
+    public void setCurrentMedications(String currentMedications) { this.currentMedications = currentMedications; }
 }

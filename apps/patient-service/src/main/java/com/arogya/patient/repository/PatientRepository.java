@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PatientRepository extends JpaRepository<Patient, UUID> {
 
-    Optional<Patient> findByAuthUserId(UUID authUserId);
+    Optional<Patient> findByAuthUserId(String authUserId);
 
-    boolean existsByAuthUserId(UUID authUserId);
+    boolean existsByAuthUserId(String authUserId);
 }

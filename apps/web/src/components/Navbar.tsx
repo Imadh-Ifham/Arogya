@@ -23,11 +23,22 @@ export default function Navbar() {
         <Link to="/slots" className="hover:text-foreground transition-colors">
           Browse Slots
         </Link>
+        <Link to="/search" className="hover:text-foreground transition-colors">
+          Find Doctors
+        </Link>
+        <Link to="/symptom-checker" className="hover:text-foreground transition-colors">
+          Symptom Checker
+        </Link>
 
         {accessToken && (
-          <Link to="/appointments" className="hover:text-foreground transition-colors">
-            My Appointments
-          </Link>
+          <>
+            <Link to="/appointments" className="hover:text-foreground transition-colors">
+              My Appointments
+            </Link>
+            <Link to="/profile" className="hover:text-foreground transition-colors">
+              Profile
+            </Link>
+          </>
         )}
 
         <ThemeToggle />

@@ -79,16 +79,14 @@ export default function AppointmentsPage() {
               </span>
             </div>
 
-            {apt.meetingUrl && (
-              <a
-                href={apt.meetingUrl}
-                target="_blank"
-                rel="noreferrer"
+            {apt.appointmentType === "ONLINE" && apt.status === "CONFIRMED" && (
+              <Link
+                to={`/appointments/${apt.id}/consultation`}
                 onClick={(e) => e.stopPropagation()}
                 className="mt-3 inline-block text-xs text-teal hover:underline"
               >
-                Join video call →
-              </a>
+                Join video consultation →
+              </Link>
             )}
           </Link>
         ))}

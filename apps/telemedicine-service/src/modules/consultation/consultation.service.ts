@@ -130,8 +130,25 @@ async function fetchAppointment(
   return result.data;
 }
 
-async function ensureAppointmentExists(appointmentId: string): Promise<void> {
-  await fetchAppointment(appointmentId);
+function assertAppointmentEligibleForRoom(appointment: AppointmentSummary): void {
+  if (appointment.status !== "CONFIRMED") {
+    throw new HttpError(
+      409,
+      `Appointment must be CONFIRMED to start a consultation (current: ${appointment.status})`,
+    );
+  }
+
+  if (appointment.appointmentType !== "ONLINE") {
+    throw new HttpError(
+      409,
+      "Only ONLINE appointments can have a telemedicine room",
+    );
+  }
+}
+
+async function ensureAppointmentEligible(appointmentId: string): Promise<void> {
+  const appointment = await fetchAppointment(appointmentId);
+  assertAppointmentEligibleForRoom(appointment);
 }
 
 function assertRoomIsUsable(room: ConsultationRoomView): void {
@@ -200,7 +217,7 @@ export async function reopenRoom(
 export async function createConsultationSession(
   input: CreateConsultationInput,
 ): Promise<ConsultationView> {
-  await ensureAppointmentExists(input.appointmentId);
+  await ensureAppointmentEligible(input.appointmentId);
 
   const room = await findConsultationRoomByParticipants(
     input.doctorId,
@@ -243,6 +260,7 @@ export async function createSessionForAppointment(input: {
   doctorId: string;
 }): Promise<string> {
   const appointment = await fetchAppointment(input.appointmentId);
+  assertAppointmentEligibleForRoom(appointment);
   const startsAt = new Date(appointment.startsAt);
 
   const expiresAt = new Date(

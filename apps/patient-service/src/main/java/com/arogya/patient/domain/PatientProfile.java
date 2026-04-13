@@ -24,10 +24,19 @@ public class PatientProfile {
     @JoinColumn(name = "patient_id", nullable = false, unique = true)
     private Patient patient;
 
-    @Column(name = "date_of_birth", nullable = false)
+    @Column(name = "first_name", length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", length = 100)
+    private String lastName;
+
+    @Column(name = "phone_number", length = 30)
+    private String phoneNumber;
+
+    @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     private String gender;
 
     @Column(name = "blood_group", length = 10)
@@ -39,19 +48,19 @@ public class PatientProfile {
     @Column(name = "weight_kg")
     private Integer weightKg;
 
-    @Column(name = "street_address", nullable = false)
+    @Column(name = "street_address")
     private String streetAddress;
 
-    @Column(nullable = false, length = 100)
+    @Column(length = 100)
     private String city;
 
-    @Column(name = "emergency_contact_name", nullable = false, length = 100)
+    @Column(name = "emergency_contact_name", length = 100)
     private String emergencyContactName;
 
-    @Column(name = "emergency_contact_phone", nullable = false, length = 30)
+    @Column(name = "emergency_contact_phone", length = 30)
     private String emergencyContactPhone;
 
-    @Column(name = "emergency_contact_relationship", nullable = false, length = 50)
+    @Column(name = "emergency_contact_relationship", length = 50)
     private String emergencyContactRelationship;
 
     @Column(name = "known_allergies")
@@ -100,6 +109,30 @@ public class PatientProfile {
 
     public void setPatient(Patient patient) {
         this.patient = patient;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 
     public LocalDate getDateOfBirth() {

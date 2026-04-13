@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { cancelAppointmentThunk, rescheduleAppointmentThunk } from "../store/appointment/appointment.thunk";
 import { fetchSlotsThunk } from "../store/appointment/appointment.thunk";
@@ -97,15 +97,13 @@ export default function AppointmentDetailPage() {
                 Reason: {appointment.cancellationReason}
               </p>
             )}
-            {appointment.meetingUrl && (
-              <a
-                href={appointment.meetingUrl}
-                target="_blank"
-                rel="noreferrer"
+            {appointment.appointmentType === "ONLINE" && appointment.status === "CONFIRMED" && (
+              <Link
+                to={`/appointments/${appointment.id}/consultation`}
                 className="inline-block text-sm text-teal hover:underline"
               >
-                Join video call →
-              </a>
+                Join video consultation →
+              </Link>
             )}
           </div>
 

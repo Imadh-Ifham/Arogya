@@ -21,8 +21,8 @@ public class Patient {
     @Id
     private UUID id;
 
-    @Column(name = "auth_user_id", nullable = false, unique = true)
-    private UUID authUserId;
+    @Column(name = "auth_user_id", nullable = false, unique = true, length = 36)
+    private String authUserId;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -51,11 +51,11 @@ public class Patient {
         this.id = id;
     }
 
-    public UUID getAuthUserId() {
+    public String getAuthUserId() {
         return authUserId;
     }
 
-    public void setAuthUserId(UUID authUserId) {
+    public void setAuthUserId(String authUserId) {
         this.authUserId = authUserId;
     }
 
