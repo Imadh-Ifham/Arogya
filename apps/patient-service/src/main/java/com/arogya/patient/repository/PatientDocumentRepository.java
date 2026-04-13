@@ -1,12 +1,14 @@
 package com.arogya.patient.repository;
 
-import com.arogya.patient.domain.PatientDocument;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import com.arogya.patient.domain.PatientDocument;
 
 public interface PatientDocumentRepository extends JpaRepository<PatientDocument, UUID> {
 

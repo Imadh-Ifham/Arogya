@@ -1,8 +1,10 @@
 package com.arogya.patient.web;
 
-import com.arogya.patient.exception.MissingAuthUserIdException;
 import java.util.UUID;
+
 import org.springframework.stereotype.Component;
+
+import com.arogya.patient.exception.MissingAuthUserIdException;
 
 @Component
 public class AuthUserIdResolver {

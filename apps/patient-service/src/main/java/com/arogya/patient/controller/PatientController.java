@@ -1,20 +1,8 @@
 package com.arogya.patient.controller;
 
-import com.arogya.patient.client.PrescriptionClient;
-import com.arogya.patient.domain.Patient;
-import com.arogya.patient.dto.ApiResponse;
-import com.arogya.patient.dto.PatientDashboardResponse;
-import com.arogya.patient.dto.PatientDocumentResponse;
-import com.arogya.patient.dto.PatientProfileResponse;
-import com.arogya.patient.dto.PrescriptionDto;
-import com.arogya.patient.dto.CreatePatientProfileRequest;
-import com.arogya.patient.dto.UpdatePatientProfileRequest;
-import com.arogya.patient.service.PatientDocumentService;
-import com.arogya.patient.service.PatientService;
-import com.arogya.patient.web.AuthUserIdResolver;
-import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,11 +11,26 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.arogya.patient.client.PrescriptionClient;
+import com.arogya.patient.domain.Patient;
+import com.arogya.patient.dto.ApiResponse;
+import com.arogya.patient.dto.CreatePatientProfileRequest;
+import com.arogya.patient.dto.PatientDashboardResponse;
+import com.arogya.patient.dto.PatientDocumentResponse;
+import com.arogya.patient.dto.PatientProfileResponse;
+import com.arogya.patient.dto.PrescriptionDto;
+import com.arogya.patient.dto.UpdatePatientProfileRequest;
+import com.arogya.patient.service.PatientDocumentService;
+import com.arogya.patient.service.PatientService;
+import com.arogya.patient.web.AuthUserIdResolver;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/patients")
@@ -50,7 +53,6 @@ public class PatientController {
     }
 
     // ── Profile ───────────────────────────────────────────────────────────────
-
     @PostMapping("/profile")
     public ResponseEntity<ApiResponse<PatientProfileResponse>> createProfile(
             @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID headerAuthUserId,
@@ -92,7 +94,6 @@ public class PatientController {
     }
 
     // ── Documents ─────────────────────────────────────────────────────────────
-
     @PostMapping(path = "/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<PatientDocumentResponse>> uploadOwnDocument(
             @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId,
@@ -137,7 +138,6 @@ public class PatientController {
     }
 
     // ── Prescriptions ─────────────────────────────────────────────────────────
-
     @GetMapping("/me/prescriptions")
     public ResponseEntity<ApiResponse<List<PrescriptionDto>>> getOwnPrescriptions(
             @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
@@ -148,7 +148,6 @@ public class PatientController {
     }
 
     // ── Dashboard ─────────────────────────────────────────────────────────────
-
     @GetMapping("/me/dashboard")
     public ResponseEntity<ApiResponse<PatientDashboardResponse>> getOwnDashboard(
             @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
