@@ -4,6 +4,7 @@ The sole authentication and identity authority for the Arogya platform.
 No other service issues tokens or stores passwords.
 
 ## Stack
+
 - Node.js + Express + TypeScript
 - MongoDB (isolated — `arogya_auth` database)
 - JWT (access tokens) + opaque refresh tokens
@@ -25,16 +26,16 @@ docker-compose up --build
 
 ## Endpoints
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/api/auth/health` | None | Health check |
-| POST | `/api/auth/register` | None | Register new user |
-| POST | `/api/auth/login` | None | Login |
-| POST | `/api/auth/refresh` | None | Refresh tokens |
-| POST | `/api/auth/logout` | None | Logout (revoke token) |
-| GET | `/api/auth/me` | Bearer token | Get own profile |
-| POST | `/api/auth/forgot-password` | None | Request password reset |
-| POST | `/api/auth/reset-password` | None | Complete password reset |
+| Method | Path                        | Auth         | Description             |
+| ------ | --------------------------- | ------------ | ----------------------- |
+| GET    | `/api/auth/health`          | None         | Health check            |
+| POST   | `/api/auth/register`        | None         | Register new user       |
+| POST   | `/api/auth/login`           | None         | Login                   |
+| POST   | `/api/auth/refresh`         | None         | Refresh tokens          |
+| POST   | `/api/auth/logout`          | None         | Logout (revoke token)   |
+| GET    | `/api/auth/me`              | Bearer token | Get own profile         |
+| POST   | `/api/auth/forgot-password` | None         | Request password reset  |
+| POST   | `/api/auth/reset-password`  | None         | Complete password reset |
 
 ## Token format
 
@@ -58,27 +59,36 @@ Refresh token lifetime: **7 days**
 ## Integrating into your service (4 steps)
 
 **1.** Copy these two files into your service:
+
 ```
 src/middleware/auth.middleware.ts
 src/types/auth.types.ts        ← interfaces only, not the models
 ```
 
 **2.** Add to your `.env`:
+
 ```
 JWT_SECRET=           ← must match auth-service exactly (ask team lead)
 ```
 
 **3.** Protect your routes:
-```typescript
-import { verifyToken, requireRole } from '../middleware/auth.middleware';
-import { UserRole } from '../types/auth.types';
 
-router.get('/my-data',   verifyToken, getMyData);
-router.post('/slots',    verifyToken, requireRole(UserRole.DOCTOR), createSlot);
-router.get('/dashboard', verifyToken, requireRole(UserRole.ADMIN), getDashboard);
+```typescript
+import { verifyToken, requireRole } from "../middleware/auth.middleware";
+import { UserRole } from "../types/auth.types";
+
+router.get("/my-data", verifyToken, getMyData);
+router.post("/slots", verifyToken, requireRole(UserRole.DOCTOR), createSlot);
+router.get(
+  "/dashboard",
+  verifyToken,
+  requireRole(UserRole.ADMIN),
+  getDashboard,
+);
 ```
 
 **4.** Read the user in your controller:
+
 ```typescript
 const { userId, role, email } = req.user!;
 ```
@@ -86,27 +96,23 @@ const { userId, role, email } = req.user!;
 ## Error responses
 
 All errors follow this shape:
+
 ```json
 {
   "success": false,
   "message": "Human readable message",
-  "errors": []   // only on validation failures
+  "errors": [] // only on validation failures
 }
 ```
-src/middleware/auth.middleware.ts
-src/types/auth.types.ts        ← interfaces only, not the models
-```
 
-**2.** Add to your `.env`:
-
-| Status | Meaning |
-|--------|---------|
-| 401 | Missing, expired, or invalid token |
-| 403 | Valid token but wrong role |
-| 409 | Email already registered |
-| 422 | Validation failed (see `errors` array) |
-| 429 | Rate limit exceeded |
-| 500 | Internal server error |
+| Status | Meaning                                |
+| ------ | -------------------------------------- |
+| 401    | Missing, expired, or invalid token     |
+| 403    | Valid token but wrong role             |
+| 409    | Email already registered               |
+| 422    | Validation failed (see `errors` array) |
+| 429    | Rate limit exceeded                    |
+| 500    | Internal server error                  |
 
 ## Testing
 

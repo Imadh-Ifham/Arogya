@@ -36,6 +36,7 @@ export const register = async (dto: RegisterDto): Promise<AuthTokens> => {
     role: dto.role,
     firstName: dto.firstName,
     lastName: dto.lastName,
+    phoneNumber: dto.phoneNumber,
   });
 
   return issueTokens(user._id.toString(), user.email, user.role);

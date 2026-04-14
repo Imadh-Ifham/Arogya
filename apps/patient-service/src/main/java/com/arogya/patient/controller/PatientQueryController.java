@@ -1,7 +1,5 @@
 package com.arogya.patient.controller;
 
-import java.util.UUID;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,8 +25,8 @@ public class PatientQueryController {
 
     @GetMapping("/exists/me")
     public ResponseEntity<MessageResponse> patientExistsForCurrentUser(
-            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
-        UUID resolvedAuthUserId = authUserIdResolver.resolveRequired(authUserId);
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) String authUserId) {
+        String resolvedAuthUserId = authUserIdResolver.resolveRequired(authUserId);
         boolean exists = patientService.patientExists(resolvedAuthUserId);
         String message = exists
                 ? "Patient exists for auth user id: " + resolvedAuthUserId
@@ -37,7 +35,7 @@ public class PatientQueryController {
     }
 
     @GetMapping("/exists/{authUserId}")
-    public ResponseEntity<MessageResponse> patientExists(@PathVariable UUID authUserId) {
+    public ResponseEntity<MessageResponse> patientExists(@PathVariable String authUserId) {
         boolean exists = patientService.patientExists(authUserId);
         String message = exists
                 ? "Patient exists for auth user id: " + authUserId

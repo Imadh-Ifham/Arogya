@@ -21,4 +21,16 @@ public interface AppointmentSlotRepository extends JpaRepository<AppointmentSlot
 
     // Used by APT-01: browse all available slots (no doctor/date filter)
     List<AppointmentSlot> findByStatus(SlotStatus status);
+
+    // Used by SlotGenerationService to skip already-created slots (idempotency)
+    boolean existsByDoctorIdAndStartTime(String doctorId, java.time.LocalDateTime startTime);
+
+    // Used when regenerating slots for a doctor after availability change.
+    // Only removes AVAILABLE slots — BOOKED slots are preserved.
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query(
+        "DELETE FROM AppointmentSlot s WHERE s.doctorId = :doctorId AND s.status = com.arogya.appointment_service.enums.SlotStatus.AVAILABLE"
+    )
+    void deleteAvailableSlotsByDoctorId(String doctorId);
 }

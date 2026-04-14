@@ -22,6 +22,12 @@ public class AppointmentResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    /** Denormalised for display — populated from the linked AppointmentSlot. */
+    private String doctorName;
+
+    /** Denormalised for display — populated from patient-service. */
+    private String patientName;
+
     public static AppointmentResponse from(Appointment a) {
         AppointmentResponse r = new AppointmentResponse();
         r.id                 = a.getId();
@@ -35,6 +41,13 @@ public class AppointmentResponse {
         r.cancellationReason = a.getCancellationReason();
         r.createdAt          = a.getCreatedAt();
         r.updatedAt          = a.getUpdatedAt();
+        return r;
+    }
+
+    public static AppointmentResponse from(Appointment a, String doctorName, String patientName) {
+        AppointmentResponse r = from(a);
+        r.doctorName  = doctorName;
+        r.patientName = patientName;
         return r;
     }
 }

@@ -8,7 +8,10 @@ import java.util.UUID;
 public class PatientProfileResponse {
 
     private UUID patientId;
-    private UUID authUserId;
+    private String authUserId;
+    private String firstName;
+    private String lastName;
+    private String phoneNumber;
     private LocalDateTime patientCreatedAt;
     private UUID profileId;
     private LocalDate dateOfBirth;
@@ -16,12 +19,12 @@ public class PatientProfileResponse {
     private String bloodGroup;
     private Integer heightCm;
     private Integer weightKg;
-    private String streetAddress;
+    private String address;
     private String city;
     private String emergencyContactName;
     private String emergencyContactPhone;
     private String emergencyContactRelationship;
-    private String knownAllergies;
+    private List<String> allergies;
     private String medicalConditions;
     private String currentMedications;
     private LocalDateTime profileCreatedAt;
@@ -36,13 +39,22 @@ public class PatientProfileResponse {
         this.patientId = patientId;
     }
 
-    public UUID getAuthUserId() {
+    public String getAuthUserId() {
         return authUserId;
     }
 
-    public void setAuthUserId(UUID authUserId) {
+    public void setAuthUserId(String authUserId) {
         this.authUserId = authUserId;
     }
+
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
+
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
+
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
     public LocalDateTime getPatientCreatedAt() {
         return patientCreatedAt;
@@ -100,12 +112,12 @@ public class PatientProfileResponse {
         this.weightKg = weightKg;
     }
 
-    public String getStreetAddress() {
-        return streetAddress;
+    public String getAddress() {
+        return address;
     }
 
-    public void setStreetAddress(String streetAddress) {
-        this.streetAddress = streetAddress;
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public String getCity() {
@@ -140,12 +152,12 @@ public class PatientProfileResponse {
         this.emergencyContactRelationship = emergencyContactRelationship;
     }
 
-    public String getKnownAllergies() {
-        return knownAllergies;
+    public List<String> getAllergies() {
+        return allergies;
     }
 
-    public void setKnownAllergies(String knownAllergies) {
-        this.knownAllergies = knownAllergies;
+    public void setAllergies(List<String> allergies) {
+        this.allergies = allergies;
     }
 
     public String getMedicalConditions() {

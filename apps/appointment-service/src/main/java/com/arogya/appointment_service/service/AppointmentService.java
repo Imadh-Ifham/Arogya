@@ -1,6 +1,8 @@
 package com.arogya.appointment_service.service;
 
-import com.arogya.appointment_service.client.TelemedicineServiceClient;
+import com.arogya.appointment_service.client.NotificationServiceClient;
+import com.arogya.appointment_service.client.PatientServiceClient;
+import com.arogya.appointment_service.client.PaymentServiceClient;
 import com.arogya.appointment_service.dto.request.BookAppointmentRequest;
 import com.arogya.appointment_service.dto.request.CancelAppointmentRequest;
 import com.arogya.appointment_service.dto.request.RescheduleAppointmentRequest;
@@ -21,8 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -31,13 +36,23 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final AppointmentSlotRepository slotRepository;
     private final AppointmentSlotService slotService;
-    private final TelemedicineServiceClient telemedicineClient;
+    private final PaymentServiceClient paymentClient;
+    private final NotificationServiceClient notificationClient;
+    private final PatientServiceClient patientClient;
 
     /**
      * APT-02: Book an appointment.
+     *
+     * PHYSICAL appointments are fully handled here: slot reservation → appointment
+     * record → payment (optional) → notification (fire-and-forget).
+     *
+     * ONLINE appointments are also stored here (slot + appointment record) but the
+     * telemedicine session provisioning is intentionally deferred — it will be
+     * handled by the telemedicine-service in a future iteration.  The meeting URL
+     * stays null until that service sets it.
+     *
      * APT-07: Double-booking is prevented by the @Version field on AppointmentSlot.
-     *         If two requests try to mark the same slot BOOKED simultaneously, the
-     *         second transaction throws OptimisticLockingFailureException → 409.
+     *         Simultaneous bookings → OptimisticLockingFailureException → 409.
      */
     /*
     @Transactional
@@ -113,6 +128,19 @@ public class AppointmentService {
 
         Appointment saved = appointmentRepository.save(appointment);
 
+        if (request.getAppointmentType() == AppointmentType.PHYSICAL) {
+            // ── PHYSICAL: initiate payment immediately ────────────────────────
+            // If the payment service is unavailable the appointment stays PENDING;
+            // payment can be retried or reconciled later.
+            try {
+                String paymentId = paymentClient.initiatePayment(saved.getId(), slot.getFee(), patientId);
+                saved.setPaymentId(paymentId);
+                saved.setStatus(AppointmentStatus.CONFIRMED);
+                saved = appointmentRepository.save(saved);
+            } catch (RuntimeException e) {
+                log.warn("Payment service unavailable for appointment {} — status remains PENDING: {}",
+                        saved.getId(), e.getMessage());
+            }
         // For ONLINE appointments, call telemedicine-service to create a video session.
         // If the call fails the whole transaction rolls back, releasing the slot.
         if (request.getAppointmentType() == AppointmentType.ONLINE) {
@@ -121,6 +149,18 @@ public class AppointmentService {
             saved.setMeetingUrl(meetingUrl);
             saved = appointmentRepository.save(saved);
         }
+        // ONLINE: payment and telemedicine session are deferred to the
+        // telemedicine-service (future implementation).  Appointment is saved
+        // in PENDING status; the telemedicine-service will update it once
+        // the session and payment are confirmed.
+
+        // Fire-and-forget notification — errors are swallowed inside the client
+        notificationClient.sendAppointmentConfirmed(
+                saved.getId(),
+                patientId,
+                slot.getDoctorId(),
+                slot.getStartTime() != null ? slot.getStartTime().toString() : null
+        );
 
         return AppointmentResponse.from(saved);
     }
@@ -138,10 +178,21 @@ public class AppointmentService {
 
     /**
      * APT-03: List the calling patient's own appointments.
+     * Enriches each response with doctorName fetched from the linked slot.
      */
     public List<AppointmentResponse> getMyAppointments(String patientId) {
-        return appointmentRepository.findByPatientId(patientId)
-                .stream().map(AppointmentResponse::from).toList();
+        List<Appointment> appointments = appointmentRepository.findByPatientId(patientId);
+        // Batch-load slots to avoid N+1 queries
+        List<String> slotIds = appointments.stream().map(Appointment::getSlotId).toList();
+        Map<String, AppointmentSlot> slotMap = slotRepository.findAllById(slotIds)
+                .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s));
+        return appointments.stream()
+                .map(a -> {
+                    AppointmentSlot slot = slotMap.get(a.getSlotId());
+                    String doctorName = slot != null ? slot.getDoctorName() : null;
+                    return AppointmentResponse.from(a, doctorName, null);
+                })
+                .toList();
     }
 
     /**
@@ -218,6 +269,87 @@ public class AppointmentService {
         });
 
         return AppointmentResponse.from(appointmentRepository.save(appointment));
+    }
+
+    /**
+     * Doctor accepts an appointment.
+     * Only the assigned doctor can accept their own appointment.
+     */
+    @Transactional
+    public AppointmentResponse acceptAppointment(String appointmentId, String doctorId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
+
+        if (!appointment.getDoctorId().equals(doctorId)) {
+            throw new UnauthorizedException("You are not the assigned doctor for this appointment");
+        }
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED
+                || appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot accept appointment with status: " + appointment.getStatus());
+        }
+
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        Appointment saved = appointmentRepository.save(appointment);
+
+        // Notify the patient that the doctor accepted
+        notificationClient.sendAppointmentAccepted(saved.getId(), saved.getPatientId(), doctorId);
+
+        return AppointmentResponse.from(saved);
+    }
+
+    /**
+     * Doctor rejects / cancels an appointment.
+     * Releases the slot so another patient can book it.
+     */
+    @Transactional
+    public AppointmentResponse rejectAppointment(String appointmentId, String doctorId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
+
+        if (!appointment.getDoctorId().equals(doctorId)) {
+            throw new UnauthorizedException("You are not the assigned doctor for this appointment");
+        }
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED
+                || appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot reject appointment with status: " + appointment.getStatus());
+        }
+
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        appointment.setCancellationReason("Rejected by doctor");
+
+        // Re-release the slot
+        slotRepository.findById(appointment.getSlotId()).ifPresent(slot -> {
+            slot.setStatus(SlotStatus.AVAILABLE);
+            slotRepository.save(slot);
+        });
+
+        Appointment saved = appointmentRepository.save(appointment);
+
+        // Notify the patient that the doctor rejected
+        notificationClient.sendAppointmentRejected(saved.getId(), saved.getPatientId(), doctorId);
+
+        return AppointmentResponse.from(saved);
+    }
+
+    /**
+     * List all appointments for a specific doctor (used by doctor dashboard).
+     * Enriches each response with patientName fetched from patient-service and
+     * doctorName from the linked slot.
+     */
+    public List<AppointmentResponse> getDoctorAppointments(String doctorId) {
+        List<Appointment> appointments = appointmentRepository.findByDoctorId(doctorId);
+        // Batch-load slots for doctorName
+        List<String> slotIds = appointments.stream().map(Appointment::getSlotId).toList();
+        Map<String, AppointmentSlot> slotMap = slotRepository.findAllById(slotIds)
+                .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s));
+        return appointments.stream()
+                .map(a -> {
+                    AppointmentSlot slot = slotMap.get(a.getSlotId());
+                    String doctorName = slot != null ? slot.getDoctorName() : null;
+                    String patientName = patientClient.getPatientName(a.getPatientId()).orElse(null);
+                    return AppointmentResponse.from(a, doctorName, patientName);
+                })
+                .toList();
     }
 
     // Patients can only view their own appointments; doctors and admins can view any

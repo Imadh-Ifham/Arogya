@@ -23,8 +23,11 @@ app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(
   cors({
     origin: process.env.ALLOWED_ORIGINS?.split(",") || [
-      "http://localhost:3000", // API Gateway
-      "http://localhost:5173", // Vite frontend (if any)
+      "http://localhost:3000",      // API Gateway (local dev)
+      "http://localhost:5173",      // Vite frontend (local dev)
+      "http://api-gateway:3000",    // API Gateway (Docker)
+      "http://web:5173",            // Vite frontend (Docker)
+      "*",                          // Allow all origins (development only!)
     ],
     credentials: true, // allows cookies to be sent cross-origin
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

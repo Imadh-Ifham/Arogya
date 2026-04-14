@@ -1,7 +1,6 @@
 package com.arogya.patient.controller;
 
 import java.util.List;
-import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -55,7 +54,7 @@ public class PatientController {
     // ── Profile ───────────────────────────────────────────────────────────────
     @PostMapping("/profile")
     public ResponseEntity<ApiResponse<PatientProfileResponse>> createProfile(
-            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID headerAuthUserId,
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) String headerAuthUserId,
             @Valid @RequestBody CreatePatientProfileRequest request) {
         request.setAuthUserId(authUserIdResolver.resolveRequired(headerAuthUserId));
         PatientProfileResponse response = patientService.createPatientProfile(request);
@@ -64,21 +63,21 @@ public class PatientController {
 
     @GetMapping("/profile/me")
     public ResponseEntity<ApiResponse<PatientProfileResponse>> getOwnProfile(
-            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) String authUserId) {
         PatientProfileResponse response = patientService.getPatientProfileByAuthUserId(
                 authUserIdResolver.resolveRequired(authUserId));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/profile/{authUserId}")
-    public ResponseEntity<ApiResponse<PatientProfileResponse>> getProfile(@PathVariable UUID authUserId) {
+    public ResponseEntity<ApiResponse<PatientProfileResponse>> getProfile(@PathVariable String authUserId) {
         return ResponseEntity.ok(ApiResponse.success(
                 patientService.getPatientProfileByAuthUserId(authUserId)));
     }
 
     @PutMapping("/profile/me")
     public ResponseEntity<ApiResponse<PatientProfileResponse>> updateOwnProfile(
-            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId,
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) String authUserId,
             @Valid @RequestBody UpdatePatientProfileRequest request) {
         PatientProfileResponse response = patientService.updatePatientProfile(
                 authUserIdResolver.resolveRequired(authUserId), request);
@@ -87,7 +86,7 @@ public class PatientController {
 
     @PutMapping("/profile/{authUserId}")
     public ResponseEntity<ApiResponse<PatientProfileResponse>> updateProfile(
-            @PathVariable UUID authUserId,
+            @PathVariable String authUserId,
             @Valid @RequestBody UpdatePatientProfileRequest request) {
         return ResponseEntity.ok(ApiResponse.success(
                 patientService.updatePatientProfile(authUserId, request)));
@@ -96,7 +95,7 @@ public class PatientController {
     // ── Documents ─────────────────────────────────────────────────────────────
     @PostMapping(path = "/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<PatientDocumentResponse>> uploadOwnDocument(
-            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId,
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) String authUserId,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "documentType", required = false) String documentType) {
@@ -107,7 +106,7 @@ public class PatientController {
 
     @PostMapping(path = "/documents/{authUserId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<PatientDocumentResponse>> uploadDocument(
-            @PathVariable UUID authUserId,
+            @PathVariable String authUserId,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "documentType", required = false) String documentType) {
@@ -118,7 +117,7 @@ public class PatientController {
 
     @GetMapping("/documents")
     public ResponseEntity<ApiResponse<List<PatientDocumentResponse>>> getOwnDocuments(
-            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId,
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) String authUserId,
             @RequestParam(value = "type", required = false) String type,
             @RequestParam(value = "from", required = false) String from,
             @RequestParam(value = "to", required = false) String to) {
@@ -129,7 +128,7 @@ public class PatientController {
 
     @GetMapping("/documents/{authUserId}")
     public ResponseEntity<ApiResponse<List<PatientDocumentResponse>>> getDocuments(
-            @PathVariable UUID authUserId,
+            @PathVariable String authUserId,
             @RequestParam(value = "type", required = false) String type,
             @RequestParam(value = "from", required = false) String from,
             @RequestParam(value = "to", required = false) String to) {
@@ -140,7 +139,7 @@ public class PatientController {
     // ── Prescriptions ─────────────────────────────────────────────────────────
     @GetMapping("/me/prescriptions")
     public ResponseEntity<ApiResponse<List<PrescriptionDto>>> getOwnPrescriptions(
-            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) String authUserId) {
         Patient patient = patientService.getPatientByAuthUserId(
                 authUserIdResolver.resolveRequired(authUserId));
         List<PrescriptionDto> prescriptions = prescriptionClient.getPrescriptionsForPatient(patient.getId());
@@ -150,8 +149,8 @@ public class PatientController {
     // ── Dashboard ─────────────────────────────────────────────────────────────
     @GetMapping("/me/dashboard")
     public ResponseEntity<ApiResponse<PatientDashboardResponse>> getOwnDashboard(
-            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) UUID authUserId) {
-        UUID resolvedUserId = authUserIdResolver.resolveRequired(authUserId);
+            @RequestHeader(AuthUserIdResolver.AUTH_USER_ID_HEADER) String authUserId) {
+        String resolvedUserId = authUserIdResolver.resolveRequired(authUserId);
 
         // Fetch patient entity once — reused across all three data sources
         Patient patient = patientService.getPatientByAuthUserId(resolvedUserId);

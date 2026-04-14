@@ -14,7 +14,8 @@ export interface IUser extends Document {
   passwordHash: string;
   role: UserRole;
   firstName: string;
-  lastName: string;
+  lastName?: string;
+  phoneNumber?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -44,8 +45,9 @@ export interface RegisterDto {
   email: string;
   password: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   role: UserRole;
+  phoneNumber?: string;
 }
 
 // Shape of the login request body

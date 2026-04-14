@@ -32,9 +32,8 @@ export const registerRules = [
     .withMessage("First name cannot exceed 50 characters"),
 
   body("lastName")
+    .optional({ nullable: true, checkFalsy: true })
     .trim()
-    .notEmpty()
-    .withMessage("Last name is required")
     .isLength({ max: 50 })
     .withMessage("Last name cannot exceed 50 characters"),
 
@@ -43,6 +42,12 @@ export const registerRules = [
     .withMessage("Role is required")
     .isIn(Object.values(UserRole))
     .withMessage(`Role must be one of: ${Object.values(UserRole).join(", ")}`),
+
+  body("phoneNumber")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 30 })
+    .withMessage("Phone number cannot exceed 30 characters"),
 ];
 
 export const loginRules = [

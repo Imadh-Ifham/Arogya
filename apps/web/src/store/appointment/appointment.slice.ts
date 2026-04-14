@@ -1,26 +1,40 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { fetchAppointments } from "./appointment.thunk";
+import type { Appointment, Slot } from "../../modules/appointment/api/rest";
+import {
+  fetchMyAppointmentsThunk,
+  fetchSlotsThunk,
+  bookAppointmentThunk,
+  cancelAppointmentThunk,
+  rescheduleAppointmentThunk,
+  fetchDoctorAppointmentsThunk,
+  acceptAppointmentThunk,
+  rejectAppointmentThunk,
+} from "./appointment.thunk";
 
-export type AppointmentStatus = "scheduled" | "completed" | "canceled";
-
-export type Appointment = {
-  id: string;
-  patientName: string;
-  status: AppointmentStatus;
-};
-
-export type AppointmentState = {
-  items: Appointment[];
+export interface AppointmentState {
+  appointments: Appointment[];
+  doctorAppointments: Appointment[];
+  slots: Slot[];
+  selectedAppointmentId: string | null;
   loading: "idle" | "pending" | "succeeded" | "failed";
+  doctorLoading: "idle" | "pending" | "succeeded" | "failed";
+  actionLoading: Record<string, "pending" | "succeeded" | "failed">;
+  bookingLoading: "idle" | "pending" | "succeeded" | "failed";
   error: string | null;
-  selectedId: string | null;
-};
+  doctorError: string | null;
+}
 
 const initialState: AppointmentState = {
-  items: [],
+  appointments: [],
+  doctorAppointments: [],
+  slots: [],
+  selectedAppointmentId: null,
   loading: "idle",
+  doctorLoading: "idle",
+  actionLoading: {},
+  bookingLoading: "idle",
   error: null,
-  selectedId: null,
+  doctorError: null,
 };
 
 const appointmentSlice = createSlice({
@@ -28,30 +42,121 @@ const appointmentSlice = createSlice({
   initialState,
   reducers: {
     selectAppointment(state, action: PayloadAction<string | null>) {
-      state.selectedId = action.payload;
+      state.selectedAppointmentId = action.payload;
     },
     clearAppointmentError(state) {
       state.error = null;
     },
+    resetBookingStatus(state) {
+      state.bookingLoading = "idle";
+    },
   },
   extraReducers: (builder) => {
+    // ── Fetch slots ────────────────────────────────────────────────────────────
     builder
-      .addCase(fetchAppointments.pending, (state) => {
+      .addCase(fetchSlotsThunk.pending, (state) => {
         state.loading = "pending";
         state.error = null;
       })
-      .addCase(fetchAppointments.fulfilled, (state, action) => {
+      .addCase(fetchSlotsThunk.fulfilled, (state, action) => {
         state.loading = "succeeded";
-        state.items = action.payload;
+        state.slots = action.payload;
       })
-      .addCase(fetchAppointments.rejected, (state, action) => {
+      .addCase(fetchSlotsThunk.rejected, (state, action) => {
         state.loading = "failed";
-        state.error = action.error.message ?? "Failed to load appointments";
+        state.error = action.payload as string ?? "Failed to load slots";
+      });
+
+    // ── Fetch my appointments ──────────────────────────────────────────────────
+    builder
+      .addCase(fetchMyAppointmentsThunk.pending, (state) => {
+        state.loading = "pending";
+        state.error = null;
+      })
+      .addCase(fetchMyAppointmentsThunk.fulfilled, (state, action) => {
+        state.loading = "succeeded";
+        state.appointments = action.payload;
+      })
+      .addCase(fetchMyAppointmentsThunk.rejected, (state, action) => {
+        state.loading = "failed";
+        state.error = action.payload as string ?? "Failed to load appointments";
+      });
+
+    // ── Book appointment ───────────────────────────────────────────────────────
+    builder
+      .addCase(bookAppointmentThunk.pending, (state) => {
+        state.bookingLoading = "pending";
+        state.error = null;
+      })
+      .addCase(bookAppointmentThunk.fulfilled, (state, action) => {
+        state.bookingLoading = "succeeded";
+        state.appointments.unshift(action.payload);
+      })
+      .addCase(bookAppointmentThunk.rejected, (state, action) => {
+        state.bookingLoading = "failed";
+        state.error = action.payload as string ?? "Booking failed";
+      });
+
+    // ── Cancel appointment ─────────────────────────────────────────────────────
+    builder.addCase(cancelAppointmentThunk.fulfilled, (state, action) => {
+      const idx = state.appointments.findIndex((a) => a.id === action.payload.id);
+      if (idx !== -1) state.appointments[idx] = action.payload;
+    });
+
+    // ── Reschedule appointment ─────────────────────────────────────────────────
+    builder.addCase(rescheduleAppointmentThunk.fulfilled, (state, action) => {
+      const idx = state.appointments.findIndex((a) => a.id === action.payload.id);
+      if (idx !== -1) state.appointments[idx] = action.payload;
+    });
+
+    // ── Doctor: fetch their appointments ──────────────────────────────────────
+    builder
+      .addCase(fetchDoctorAppointmentsThunk.pending, (state) => {
+        state.doctorLoading = "pending";
+        state.doctorError = null;
+      })
+      .addCase(fetchDoctorAppointmentsThunk.fulfilled, (state, action) => {
+        state.doctorLoading = "succeeded";
+        state.doctorAppointments = action.payload;
+      })
+      .addCase(fetchDoctorAppointmentsThunk.rejected, (state, action) => {
+        state.doctorLoading = "failed";
+        state.doctorError = action.payload ?? "Failed to load appointments";
+      });
+
+    // ── Doctor: accept appointment ─────────────────────────────────────────────
+    builder
+      .addCase(acceptAppointmentThunk.pending, (state, action) => {
+        state.actionLoading[action.meta.arg] = "pending";
+      })
+      .addCase(acceptAppointmentThunk.fulfilled, (state, action) => {
+        delete state.actionLoading[action.payload.id];
+        const idx = state.doctorAppointments.findIndex((a) => a.id === action.payload.id);
+        if (idx !== -1) state.doctorAppointments[idx] = action.payload;
+      })
+      .addCase(acceptAppointmentThunk.rejected, (state, action) => {
+        state.actionLoading[action.meta.arg] = "failed";
+        state.doctorError = action.payload ?? "Failed to accept appointment";
+      });
+
+    // ── Doctor: reject appointment ─────────────────────────────────────────────
+    builder
+      .addCase(rejectAppointmentThunk.pending, (state, action) => {
+        state.actionLoading[action.meta.arg] = "pending";
+      })
+      .addCase(rejectAppointmentThunk.fulfilled, (state, action) => {
+        delete state.actionLoading[action.payload.id];
+        const idx = state.doctorAppointments.findIndex((a) => a.id === action.payload.id);
+        if (idx !== -1) state.doctorAppointments[idx] = action.payload;
+      })
+      .addCase(rejectAppointmentThunk.rejected, (state, action) => {
+        state.actionLoading[action.meta.arg] = "failed";
+        state.doctorError = action.payload ?? "Failed to reject appointment";
       });
   },
 });
 
-export const { selectAppointment, clearAppointmentError } =
+export const { selectAppointment, clearAppointmentError, resetBookingStatus } =
   appointmentSlice.actions;
 
 export const appointmentReducer = appointmentSlice.reducer;
