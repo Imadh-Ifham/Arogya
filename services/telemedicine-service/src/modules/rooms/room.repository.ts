@@ -88,6 +88,26 @@ export async function findConsultationRoomById(
   return room ? mapRoomToView(room) : null;
 }
 
+export async function listConsultationRoomsByDoctorId(
+  doctorId: string,
+): Promise<ConsultationRoomView[]> {
+  const rooms = (await ConsultationRoomModel.find({ doctorId })
+    .sort({ createdAt: -1 })
+    .lean()) as ConsultationRoomDocumentView[];
+
+  return rooms.map(mapRoomToView);
+}
+
+export async function listConsultationRoomsByPatientId(
+  patientId: string,
+): Promise<ConsultationRoomView[]> {
+  const rooms = (await ConsultationRoomModel.find({ patientId })
+    .sort({ createdAt: -1 })
+    .lean()) as ConsultationRoomDocumentView[];
+
+  return rooms.map(mapRoomToView);
+}
+
 export async function getConsultationRoomsMap(
   roomIds: Types.ObjectId[],
 ): Promise<Map<string, ConsultationRoomView>> {

@@ -78,6 +78,54 @@ export async function listConsultations(): Promise<ConsultationView[]> {
     );
 }
 
+export async function listConsultationsByDoctorId(
+  doctorId: string,
+): Promise<ConsultationView[]> {
+  const consultations = (await ConsultationModel.find({ doctorId })
+    .sort({ startsAt: 1 })
+    .lean()) as ConsultationDocumentView[];
+  const roomsMap = await getConsultationRoomsMap(
+    consultations.map((item) => item.roomId),
+  );
+
+  return consultations
+    .map((consultation) => {
+      const room = roomsMap.get(consultation.roomId.toString());
+      if (!room) {
+        return null;
+      }
+
+      return mapMeetingToView(consultation, room);
+    })
+    .filter(
+      (consultation): consultation is ConsultationView => consultation !== null,
+    );
+}
+
+export async function listConsultationsByPatientId(
+  patientId: string,
+): Promise<ConsultationView[]> {
+  const consultations = (await ConsultationModel.find({ patientId })
+    .sort({ startsAt: 1 })
+    .lean()) as ConsultationDocumentView[];
+  const roomsMap = await getConsultationRoomsMap(
+    consultations.map((item) => item.roomId),
+  );
+
+  return consultations
+    .map((consultation) => {
+      const room = roomsMap.get(consultation.roomId.toString());
+      if (!room) {
+        return null;
+      }
+
+      return mapMeetingToView(consultation, room);
+    })
+    .filter(
+      (consultation): consultation is ConsultationView => consultation !== null,
+    );
+}
+
 export async function findConsultationById(
   id: string,
 ): Promise<ConsultationView | null> {

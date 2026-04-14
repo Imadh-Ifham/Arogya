@@ -6,6 +6,8 @@ import {
   createConsultationSession,
   getConsultationById,
   getConsultations,
+  getConsultationsByDoctorId,
+  getConsultationsByPatientId,
 } from "./consultation.service.js";
 import type {
   ConsultationStatus,
@@ -102,6 +104,24 @@ export async function getConsultationByIdHandler(
   const consultationId = requiredParam(req.params.id, "id");
   const consultation = await getConsultationById(consultationId);
   res.status(200).json({ success: true, data: consultation });
+}
+
+export async function getConsultationsByDoctorIdHandler(
+  req: Request,
+  res: Response<ApiResponse<ConsultationView[]>>,
+): Promise<void> {
+  const doctorId = requiredParam(req.params.doctorId, "doctorId");
+  const consultations = await getConsultationsByDoctorId(doctorId);
+  res.status(200).json({ success: true, data: consultations });
+}
+
+export async function getConsultationsByPatientIdHandler(
+  req: Request,
+  res: Response<ApiResponse<ConsultationView[]>>,
+): Promise<void> {
+  const patientId = requiredParam(req.params.patientId, "patientId");
+  const consultations = await getConsultationsByPatientId(patientId);
+  res.status(200).json({ success: true, data: consultations });
 }
 
 export async function updateConsultationStatusHandler(

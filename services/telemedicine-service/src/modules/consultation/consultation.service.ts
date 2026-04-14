@@ -3,6 +3,8 @@ import {
   createConsultation,
   findConsultationById,
   listConsultations,
+  listConsultationsByDoctorId,
+  listConsultationsByPatientId,
   updateConsultationStatus,
 } from "./consultation.repository.js";
 import type {
@@ -75,6 +77,18 @@ export async function getConsultationById(
 
 export async function getConsultations(): Promise<ConsultationView[]> {
   return listConsultations();
+}
+
+export async function getConsultationsByDoctorId(
+  doctorId: string,
+): Promise<ConsultationView[]> {
+  return listConsultationsByDoctorId(doctorId);
+}
+
+export async function getConsultationsByPatientId(
+  patientId: string,
+): Promise<ConsultationView[]> {
+  return listConsultationsByPatientId(patientId);
 }
 
 export async function changeConsultationStatus(

@@ -1,15 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { env } from "../../config/env.js";
 import { HttpError } from "../../shared/http/error-handler.js";
+import { logger } from "../../shared/logger.js";
 import {
   createConsultationRoom,
   findConsultationRoomById,
   findConsultationRoomByKey,
   findConsultationRoomByParticipants,
+  listConsultationRoomsByDoctorId,
+  listConsultationRoomsByPatientId,
   markRoomAsExpiredIfNeeded,
   updateConsultationRoom,
 } from "./room.repository.js";
 import type {
+  ConsultationRoomStatus,
   ConsultationRoomView,
   CreateConsultationRoomInput,
 } from "./room.types.js";
@@ -161,6 +165,95 @@ export async function reopenRoom(
   if (!updated) {
     throw new HttpError(500, "Failed to reopen room");
   }
+
+  return updated;
+}
+
+export async function getRoomById(id: string): Promise<ConsultationRoomView> {
+  const room = await findConsultationRoomById(id);
+  if (!room) {
+    throw new HttpError(404, "Room not found");
+  }
+
+  return markRoomAsExpiredIfNeeded(room);
+}
+
+export async function getRoomsByDoctorId(
+  doctorId: string,
+): Promise<ConsultationRoomView[]> {
+  const rooms = await listConsultationRoomsByDoctorId(doctorId);
+  return Promise.all(rooms.map((room) => markRoomAsExpiredIfNeeded(room)));
+}
+
+export async function getRoomsByPatientId(
+  patientId: string,
+): Promise<ConsultationRoomView[]> {
+  const rooms = await listConsultationRoomsByPatientId(patientId);
+  return Promise.all(rooms.map((room) => markRoomAsExpiredIfNeeded(room)));
+}
+
+export async function closeRoomById(
+  roomId: string,
+  actor: string,
+): Promise<ConsultationRoomView> {
+  const room = await findConsultationRoomById(roomId);
+  if (!room) {
+    throw new HttpError(404, "Room not found");
+  }
+
+  if (room.status === "closed") {
+    throw new HttpError(409, "Room is already closed");
+  }
+
+  const updated = await updateConsultationRoom(roomId, { status: "closed" });
+  if (!updated) {
+    throw new HttpError(500, "Failed to close room");
+  }
+
+  logger.info(
+    {
+      roomId,
+      roomKey: updated.roomKey,
+      actor,
+      previousStatus: room.status,
+      nextStatus: updated.status,
+    },
+    "Room status patched to closed",
+  );
+
+  return updated;
+}
+
+export async function patchRoomById(
+  roomId: string,
+  updates: {
+    status?: ConsultationRoomStatus;
+    expiresAt?: Date;
+  },
+  actor: string,
+): Promise<ConsultationRoomView> {
+  const room = await findConsultationRoomById(roomId);
+  if (!room) {
+    throw new HttpError(404, "Room not found");
+  }
+
+  const updated = await updateConsultationRoom(roomId, updates);
+  if (!updated) {
+    throw new HttpError(500, "Failed to patch room");
+  }
+
+  logger.info(
+    {
+      roomId,
+      roomKey: updated.roomKey,
+      actor,
+      updates: {
+        status: updates.status,
+        expiresAt: updates.expiresAt?.toISOString(),
+      },
+    },
+    "Room patched",
+  );
 
   return updated;
 }
