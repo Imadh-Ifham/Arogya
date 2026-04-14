@@ -145,7 +145,7 @@ export default function DoctorDashboardPage() {
           </Link>
 
           <Link
-            to="/appointments"
+            to="/doctor/appointments"
             className="bg-card border border-border rounded-xl p-5 hover:border-primary transition-colors group"
           >
             <Stethoscope className="w-6 h-6 text-primary mb-3" />
@@ -153,7 +153,7 @@ export default function DoctorDashboardPage() {
               Appointments
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              View upcoming patient appointments
+              View and manage patient appointments
             </p>
           </Link>
         </div>

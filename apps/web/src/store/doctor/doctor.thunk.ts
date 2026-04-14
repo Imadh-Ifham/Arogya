@@ -16,9 +16,9 @@ export const fetchDoctors = createAsyncThunk<Doctor[], string | undefined, { rej
     try {
       const profiles = await searchDoctors(specialty ? { specialty, status: "APPROVED" } : { status: "APPROVED" });
       return profiles
-        .filter((p) => p.id != null)
+        .filter((p) => p.authUserId != null)
         .map((p) => ({
-          id: p.id as string,
+          id: p.authUserId,
           name: p.name ?? "",
           specialization: p.specialty ?? "",
         }));

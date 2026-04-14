@@ -2,6 +2,39 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import * as appointmentApi from "../../modules/appointment/api/rest";
 import type { Appointment, Slot, SlotsFilter, AppointmentType } from "../../modules/appointment/api/rest";
 
+export const fetchDoctorAppointmentsThunk = createAsyncThunk<Appointment[], void, { rejectValue: string }>(
+  "appointment/fetchDoctorAppointments",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await appointmentApi.fetchDoctorAppointments();
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message ?? "Failed to load appointments");
+    }
+  },
+);
+
+export const acceptAppointmentThunk = createAsyncThunk<Appointment, string, { rejectValue: string }>(
+  "appointment/accept",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await appointmentApi.acceptAppointment(id);
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message ?? "Failed to accept appointment");
+    }
+  },
+);
+
+export const rejectAppointmentThunk = createAsyncThunk<Appointment, string, { rejectValue: string }>(
+  "appointment/reject",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await appointmentApi.rejectAppointment(id);
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message ?? "Failed to reject appointment");
+    }
+  },
+);
+
 export const fetchSlotsThunk = createAsyncThunk<Slot[], SlotsFilter | undefined, { rejectValue: string }>(
   "appointment/fetchSlots",
   async (filter, { rejectWithValue }) => {

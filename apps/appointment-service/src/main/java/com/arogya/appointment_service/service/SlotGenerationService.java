@@ -94,8 +94,10 @@ public class SlotGenerationService {
                         doctorId, doctor.verificationStatus());
                 return 0;
             }
+            // Use authUserId as the canonical doctor identifier in slots
+            String slotDoctorId = doctor.authUserId() != null ? doctor.authUserId() : doctorId;
             // Remove only AVAILABLE slots — never touch already-booked ones
-            slotRepository.deleteAvailableSlotsByDoctorId(doctorId);
+            slotRepository.deleteAvailableSlotsByDoctorId(slotDoctorId);
             int count = generateForDoctor(doctor, LOOKAHEAD_DAYS);
             log.info("SlotGenerationService: {} slot(s) regenerated for doctor {}", count, doctorId);
             return count;
@@ -108,6 +110,8 @@ public class SlotGenerationService {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private int generateForDoctor(DoctorServiceClient.DoctorInfo doctor, int days) {
+        // Use authUserId as the canonical identifier stored in slots; fall back to id if missing
+        String slotDoctorId = doctor.authUserId() != null ? doctor.authUserId() : doctor.id();
         List<DoctorServiceClient.AvailabilityDto> templates =
                 doctorClient.getDoctorAvailability(doctor.id());
 
@@ -142,9 +146,9 @@ public class SlotGenerationService {
                     LocalDateTime endDt   = date.atTime(current.plusMinutes(SLOT_DURATION_MINUTES));
 
                     // Skip if this slot already exists (idempotency)
-                    if (!slotRepository.existsByDoctorIdAndStartTime(doctor.id(), startDt)) {
+                    if (!slotRepository.existsByDoctorIdAndStartTime(slotDoctorId, startDt)) {
                         AppointmentSlot slot = new AppointmentSlot();
-                        slot.setDoctorId(doctor.id());
+                        slot.setDoctorId(slotDoctorId);
                         slot.setDoctorName(doctor.name());
                         slot.setStartTime(startDt);
                         slot.setEndTime(endDt);

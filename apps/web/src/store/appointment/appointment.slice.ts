@@ -6,24 +6,35 @@ import {
   bookAppointmentThunk,
   cancelAppointmentThunk,
   rescheduleAppointmentThunk,
+  fetchDoctorAppointmentsThunk,
+  acceptAppointmentThunk,
+  rejectAppointmentThunk,
 } from "./appointment.thunk";
 
 export interface AppointmentState {
   appointments: Appointment[];
+  doctorAppointments: Appointment[];
   slots: Slot[];
   selectedAppointmentId: string | null;
   loading: "idle" | "pending" | "succeeded" | "failed";
+  doctorLoading: "idle" | "pending" | "succeeded" | "failed";
+  actionLoading: Record<string, "pending" | "succeeded" | "failed">;
   bookingLoading: "idle" | "pending" | "succeeded" | "failed";
   error: string | null;
+  doctorError: string | null;
 }
 
 const initialState: AppointmentState = {
   appointments: [],
+  doctorAppointments: [],
   slots: [],
   selectedAppointmentId: null,
   loading: "idle",
+  doctorLoading: "idle",
+  actionLoading: {},
   bookingLoading: "idle",
   error: null,
+  doctorError: null,
 };
 
 const appointmentSlice = createSlice({
@@ -97,6 +108,51 @@ const appointmentSlice = createSlice({
       const idx = state.appointments.findIndex((a) => a.id === action.payload.id);
       if (idx !== -1) state.appointments[idx] = action.payload;
     });
+
+    // ── Doctor: fetch their appointments ──────────────────────────────────────
+    builder
+      .addCase(fetchDoctorAppointmentsThunk.pending, (state) => {
+        state.doctorLoading = "pending";
+        state.doctorError = null;
+      })
+      .addCase(fetchDoctorAppointmentsThunk.fulfilled, (state, action) => {
+        state.doctorLoading = "succeeded";
+        state.doctorAppointments = action.payload;
+      })
+      .addCase(fetchDoctorAppointmentsThunk.rejected, (state, action) => {
+        state.doctorLoading = "failed";
+        state.doctorError = action.payload ?? "Failed to load appointments";
+      });
+
+    // ── Doctor: accept appointment ─────────────────────────────────────────────
+    builder
+      .addCase(acceptAppointmentThunk.pending, (state, action) => {
+        state.actionLoading[action.meta.arg] = "pending";
+      })
+      .addCase(acceptAppointmentThunk.fulfilled, (state, action) => {
+        delete state.actionLoading[action.payload.id];
+        const idx = state.doctorAppointments.findIndex((a) => a.id === action.payload.id);
+        if (idx !== -1) state.doctorAppointments[idx] = action.payload;
+      })
+      .addCase(acceptAppointmentThunk.rejected, (state, action) => {
+        state.actionLoading[action.meta.arg] = "failed";
+        state.doctorError = action.payload ?? "Failed to accept appointment";
+      });
+
+    // ── Doctor: reject appointment ─────────────────────────────────────────────
+    builder
+      .addCase(rejectAppointmentThunk.pending, (state, action) => {
+        state.actionLoading[action.meta.arg] = "pending";
+      })
+      .addCase(rejectAppointmentThunk.fulfilled, (state, action) => {
+        delete state.actionLoading[action.payload.id];
+        const idx = state.doctorAppointments.findIndex((a) => a.id === action.payload.id);
+        if (idx !== -1) state.doctorAppointments[idx] = action.payload;
+      })
+      .addCase(rejectAppointmentThunk.rejected, (state, action) => {
+        state.actionLoading[action.meta.arg] = "failed";
+        state.doctorError = action.payload ?? "Failed to reject appointment";
+      });
   },
 });
 

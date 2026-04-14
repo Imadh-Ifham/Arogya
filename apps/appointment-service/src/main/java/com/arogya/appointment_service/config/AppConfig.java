@@ -18,6 +18,9 @@ public class AppConfig {
     @Value("${services.telemedicine.url}")
     private String telemedicineServiceUrl;
 
+    @Value("${services.patient.url}")
+    private String patientServiceUrl;
+
     @Value("${services.payment.url}")
     private String paymentServiceUrl;
 
@@ -61,5 +64,10 @@ public class AppConfig {
     @Bean
     public String notificationServiceUrl() {
         return notificationServiceUrl;
+    }
+
+    @Bean
+    public String patientServiceUrl() {
+        return patientServiceUrl;
     }
 }

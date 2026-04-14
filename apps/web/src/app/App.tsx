@@ -18,6 +18,7 @@ import ConsultationPage from "../pages/ConsultationPage";
 import DoctorDashboardPage from "../pages/DoctorDashboardPage";
 import DoctorProfilePage from "../pages/DoctorProfilePage";
 import DoctorAvailabilityPage from "../pages/DoctorAvailabilityPage";
+import DoctorAppointmentsPage from "../pages/DoctorAppointmentsPage";
 import AdminDashboardPage from "../pages/AdminDashboardPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HomePage from "../pages/HomePage";
@@ -122,6 +123,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DoctorAvailabilityPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/appointments"
+        element={
+          <ProtectedRoute>
+            <DoctorAppointmentsPage />
           </ProtectedRoute>
         }
       />

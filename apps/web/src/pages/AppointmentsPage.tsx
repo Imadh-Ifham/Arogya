@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { fetchMyAppointmentsThunk } from "../store/appointment/appointment.thunk";
-import { getDoctorName } from "../data/mockDoctors";
 import Layout from "../components/Layout";
 import type { AppointmentStatus } from "../modules/appointment/api/rest";
 
@@ -67,7 +66,7 @@ export default function AppointmentsPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-0.5">
                 <p className="font-semibold text-foreground text-sm">
-                  {getDoctorName(apt.doctorId)}
+                  {apt.doctorName ?? "Doctor"}
                 </p>
                 <p className="text-xs text-muted-foreground">Booked {formatDate(apt.createdAt)}</p>
                 <p className="text-xs text-muted-foreground/70 capitalize">{apt.appointmentType.toLowerCase()}</p>

@@ -1,6 +1,7 @@
 package com.arogya.appointment_service.service;
 
 import com.arogya.appointment_service.client.NotificationServiceClient;
+import com.arogya.appointment_service.client.PatientServiceClient;
 import com.arogya.appointment_service.client.PaymentServiceClient;
 import com.arogya.appointment_service.dto.request.BookAppointmentRequest;
 import com.arogya.appointment_service.dto.request.CancelAppointmentRequest;
@@ -21,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,6 +35,7 @@ public class AppointmentService {
     private final AppointmentSlotService slotService;
     private final PaymentServiceClient paymentClient;
     private final NotificationServiceClient notificationClient;
+    private final PatientServiceClient patientClient;
 
     /**
      * APT-02: Book an appointment.
@@ -108,10 +112,21 @@ public class AppointmentService {
 
     /**
      * APT-03: List the calling patient's own appointments.
+     * Enriches each response with doctorName fetched from the linked slot.
      */
     public List<AppointmentResponse> getMyAppointments(String patientId) {
-        return appointmentRepository.findByPatientId(patientId)
-                .stream().map(AppointmentResponse::from).toList();
+        List<Appointment> appointments = appointmentRepository.findByPatientId(patientId);
+        // Batch-load slots to avoid N+1 queries
+        List<String> slotIds = appointments.stream().map(Appointment::getSlotId).toList();
+        Map<String, AppointmentSlot> slotMap = slotRepository.findAllById(slotIds)
+                .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s));
+        return appointments.stream()
+                .map(a -> {
+                    AppointmentSlot slot = slotMap.get(a.getSlotId());
+                    String doctorName = slot != null ? slot.getDoctorName() : null;
+                    return AppointmentResponse.from(a, doctorName, null);
+                })
+                .toList();
     }
 
     /**
@@ -252,10 +267,23 @@ public class AppointmentService {
 
     /**
      * List all appointments for a specific doctor (used by doctor dashboard).
+     * Enriches each response with patientName fetched from patient-service and
+     * doctorName from the linked slot.
      */
     public List<AppointmentResponse> getDoctorAppointments(String doctorId) {
-        return appointmentRepository.findByDoctorId(doctorId)
-                .stream().map(AppointmentResponse::from).toList();
+        List<Appointment> appointments = appointmentRepository.findByDoctorId(doctorId);
+        // Batch-load slots for doctorName
+        List<String> slotIds = appointments.stream().map(Appointment::getSlotId).toList();
+        Map<String, AppointmentSlot> slotMap = slotRepository.findAllById(slotIds)
+                .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s));
+        return appointments.stream()
+                .map(a -> {
+                    AppointmentSlot slot = slotMap.get(a.getSlotId());
+                    String doctorName = slot != null ? slot.getDoctorName() : null;
+                    String patientName = patientClient.getPatientName(a.getPatientId()).orElse(null);
+                    return AppointmentResponse.from(a, doctorName, patientName);
+                })
+                .toList();
     }
 
     // Patients can only view their own appointments; doctors and admins can view any

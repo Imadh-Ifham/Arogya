@@ -27,6 +27,8 @@ export interface Appointment {
   cancellationReason: string | null;
   createdAt: string;
   updatedAt: string;
+  doctorName?: string | null;
+  patientName?: string | null;
 }
 
 export interface SlotsFilter {
@@ -74,5 +76,20 @@ export async function cancelAppointment(id: string, cancellationReason?: string)
 
 export async function rescheduleAppointment(id: string, newSlotId: string): Promise<Appointment> {
   const { data } = await api.patch(`/appointments/${id}/reschedule`, { newSlotId });
+  return data as Appointment;
+}
+
+export async function fetchDoctorAppointments(): Promise<Appointment[]> {
+  const { data } = await api.get("/appointments/doctor");
+  return data as Appointment[];
+}
+
+export async function acceptAppointment(id: string): Promise<Appointment> {
+  const { data } = await api.patch(`/appointments/${id}/accept`);
+  return data as Appointment;
+}
+
+export async function rejectAppointment(id: string): Promise<Appointment> {
+  const { data } = await api.patch(`/appointments/${id}/reject`);
   return data as Appointment;
 }

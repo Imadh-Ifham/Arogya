@@ -43,7 +43,9 @@ public class DoctorServiceClient {
             );
             List<DoctorInfo> doctors = response.getBody();
             if (doctors == null) return Collections.emptyList();
-            return doctors.stream().map(DoctorInfo::id).toList();
+            return doctors.stream()
+                    .filter(d -> d.authUserId() != null)
+                    .map(DoctorInfo::authUserId).toList();
         } catch (RestClientException e) {
             log.warn("Doctor-service unreachable when filtering by specialty '{}': {}", specialty, e.getMessage());
             return Collections.emptyList();
@@ -110,7 +112,7 @@ public class DoctorServiceClient {
     }
 
     /** Projection used for approved-doctor listing and specialty search. */
-    public record DoctorInfo(String id, String name, Double consultationFee, String verificationStatus) {}
+    public record DoctorInfo(String id, String authUserId, String name, Double consultationFee, String verificationStatus) {}
 
     /** Projection for a weekly availability template from doctor-service. */
     public record AvailabilityDto(Long id, String dayOfWeek, String startTime, String endTime) {}
