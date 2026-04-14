@@ -25,6 +25,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/appointments/slots/**").permitAll()
+                // Internal endpoint called by doctor-service — no JWT, trusted via Docker network
+                .requestMatchers(HttpMethod.POST, "/api/appointments/slots/regenerate/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

@@ -91,8 +91,8 @@ public class DoctorController {
     }
 
     @GetMapping("/{id}")
-    public Doctor getProfile(@PathVariable Long id) {
-        return doctorService.getDoctorProfile(id);
+    public ResponseEntity<DoctorSummaryDto> getProfile(@PathVariable Long id) {
+        return ResponseEntity.ok(DoctorSummaryDto.from(doctorService.getDoctorProfile(id)));
     }
 
     @PostMapping("/{id}/reviews")

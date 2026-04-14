@@ -89,6 +89,11 @@ public class SlotGenerationService {
      */
     public int generateSlotsForDoctor(String doctorId) {
         return doctorClient.getDoctorById(doctorId).map(doctor -> {
+            if (!"APPROVED".equalsIgnoreCase(doctor.verificationStatus())) {
+                log.info("SlotGenerationService: doctor {} is not APPROVED (status: {}) — skipping regeneration",
+                        doctorId, doctor.verificationStatus());
+                return 0;
+            }
             // Remove only AVAILABLE slots — never touch already-booked ones
             slotRepository.deleteAvailableSlotsByDoctorId(doctorId);
             int count = generateForDoctor(doctor, LOOKAHEAD_DAYS);

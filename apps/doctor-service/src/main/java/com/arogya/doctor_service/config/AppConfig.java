@@ -15,11 +15,11 @@ public class AppConfig {
     @Value("${services.appointment.url}")
     private String appointmentServiceUrl;
 
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
-
+    /**
+     * Uses Spring Boot's auto-configured ObjectMapper (which includes JavaTimeModule
+     * and WRITE_DATES_AS_TIMESTAMPS=false) so that LocalTime/LocalDate fields in
+     * AvailabilityTemplate responses serialize as ISO strings, not arrays or POJOs.
+     */
     @Bean
     public RestTemplate restTemplate(ObjectMapper objectMapper) {
         RestTemplate rt = new RestTemplate();
