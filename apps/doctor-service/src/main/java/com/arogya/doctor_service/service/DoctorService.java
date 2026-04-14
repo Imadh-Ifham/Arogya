@@ -26,6 +26,15 @@ public class DoctorService {
         return doctorRepository.save(doctor);
     }
 
+    // 1c. Admin: list all doctors (optionally filtered by status)
+    public List<Doctor> getAllDoctors() {
+        return doctorRepository.findAll();
+    }
+
+    public List<Doctor> getDoctorsByStatus(VerificationStatus status) {
+        return doctorRepository.findByVerificationStatus(status);
+    }
+
     // 1b. Search / list doctors — optional specialty filter, only APPROVED doctors visible to patients
     public List<Doctor> getDoctors(String specialty) {
         if (specialty != null && !specialty.isBlank()) {

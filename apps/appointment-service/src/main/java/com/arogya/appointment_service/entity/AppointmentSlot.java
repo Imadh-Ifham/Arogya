@@ -21,6 +21,10 @@ public class AppointmentSlot {
     @Column(nullable = false)
     private String doctorId;       // references Doctor Service — not a FK
 
+    /** Display name copied from doctor-service at slot-generation time. */
+    @Column(nullable = true)
+    private String doctorName;
+
     @Column(nullable = false)
     private LocalDateTime startTime;
 

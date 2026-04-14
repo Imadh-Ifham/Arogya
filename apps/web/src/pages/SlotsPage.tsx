@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { fetchSlotsThunk } from "../store/appointment/appointment.thunk";
-import { getDoctorLabel } from "../data/mockDoctors";
 import Layout from "../components/Layout";
 
 function formatDateTime(iso: string) {
@@ -60,10 +59,7 @@ export default function SlotsPage() {
         <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg">No available slots found.</p>
           <p className="text-sm mt-1">
-            Run the seed script to populate test data — see{" "}
-            <code className="bg-muted px-1 rounded text-foreground">
-              apps/appointment-service/seed-test-slots.sql
-            </code>
+            Make sure doctors are approved and have availability templates set up.
           </p>
         </div>
       )}
@@ -78,7 +74,7 @@ export default function SlotsPage() {
             >
               <div>
                 <p className="font-semibold text-foreground text-sm">
-                  {getDoctorLabel(slot.doctorId)}
+                  {slot.doctorName ?? "Dr. (unknown)"}
                 </p>
               </div>
 

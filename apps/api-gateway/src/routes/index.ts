@@ -46,6 +46,7 @@ const proxy = (target: string, pathRewrite?: Record<string, string>) =>
 const authRewrite         = { '^/(.+)': '/api/auth/$1',             '^/$': '/api/auth' };
 const appointmentRewrite  = { '^/(.+)': '/api/appointments/$1',     '^/$': '/api/appointments' };
 const doctorRewrite       = { '^/(.+)': '/api/doctors/$1',          '^/$': '/api/doctors' };
+const adminRewrite        = { '^/(.+)': '/api/admin/$1',            '^/$': '/api/admin' };
 const patientRewrite      = { '^/(.+)': '/patients/$1',             '^/$': '/patients' };
 const telemedicineRewrite = { '^/(.+)': '/api/v1/consultations/$1', '^/$': '/api/v1/consultations' };
 const aiRewrite           = { '^/(.+)': '/ai/$1',                   '^/$': '/ai' };
@@ -74,6 +75,15 @@ router.use(
   stripUserHeaders,
   verifyToken,
   proxy(env.services.appointment, appointmentRewrite)
+);
+
+// ─── Admin routes (doctor-service) — admin role required ──────────────────────
+router.use(
+  '/api/admin',
+  stripUserHeaders,
+  verifyToken,
+  requireRole('admin'),
+  proxy(env.services.doctor, adminRewrite)
 );
 
 // ─── Doctor routes ─────────────────────────────────────────────────────────────

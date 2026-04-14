@@ -21,4 +21,7 @@ public interface AppointmentSlotRepository extends JpaRepository<AppointmentSlot
 
     // Used by APT-01: browse all available slots (no doctor/date filter)
     List<AppointmentSlot> findByStatus(SlotStatus status);
+
+    // Used by SlotGenerationService to skip already-created slots (idempotency)
+    boolean existsByDoctorIdAndStartTime(String doctorId, java.time.LocalDateTime startTime);
 }

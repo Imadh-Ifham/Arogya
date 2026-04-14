@@ -12,6 +12,7 @@ public class SlotResponse {
 
     private String id;
     private String doctorId;
+    private String doctorName;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private BigDecimal fee;
@@ -19,9 +20,10 @@ public class SlotResponse {
 
     public static SlotResponse from(AppointmentSlot s) {
         SlotResponse r = new SlotResponse();
-        r.id        = s.getId();
-        r.doctorId  = s.getDoctorId();
-        r.startTime = s.getStartTime();
+        r.id         = s.getId();
+        r.doctorId   = s.getDoctorId();
+        r.doctorName = s.getDoctorName();
+        r.startTime  = s.getStartTime();
         r.endTime   = s.getEndTime();
         r.fee       = s.getFee();
         r.status    = s.getStatus();

@@ -18,6 +18,7 @@ import ConsultationPage from "../pages/ConsultationPage";
 import DoctorDashboardPage from "../pages/DoctorDashboardPage";
 import DoctorProfilePage from "../pages/DoctorProfilePage";
 import DoctorAvailabilityPage from "../pages/DoctorAvailabilityPage";
+import AdminDashboardPage from "../pages/AdminDashboardPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HomePage from "../pages/HomePage";
 
@@ -121,6 +122,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DoctorAvailabilityPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin routes */}
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboardPage />
           </ProtectedRoute>
         }
       />

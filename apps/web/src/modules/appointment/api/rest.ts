@@ -7,6 +7,7 @@ export type AppointmentType = "PHYSICAL" | "ONLINE";
 export interface Slot {
   id: string;
   doctorId: string;
+  doctorName?: string;
   startTime: string;
   endTime: string;
   fee: number;

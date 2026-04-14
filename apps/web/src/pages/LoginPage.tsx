@@ -17,11 +17,14 @@ export default function LoginPage() {
   const from = (location.state as any)?.from?.pathname;
 
   const [form, setForm] = useState({ email: "", password: "" });
-  const [tab, setTab] = useState<"patient" | "doctor">("patient");
+  const [tab, setTab] = useState<"patient" | "doctor" | "admin">("patient");
   const [showPw, setShowPw] = useState(false);
 
-  const roleDefault = (role?: string) =>
-    role === "doctor" ? "/doctor/dashboard" : "/appointments";
+  const roleDefault = (role?: string) => {
+    if (role === "doctor") return "/doctor/dashboard";
+    if (role === "admin")  return "/admin/dashboard";
+    return "/appointments";
+  };
 
   // Already logged in → redirect based on role
   useEffect(() => {
@@ -49,7 +52,7 @@ export default function LoginPage() {
 
         <div className="bg-card rounded-2xl border border-border p-8 shadow-sm">
           <div className="flex bg-secondary rounded-lg p-1 mb-6">
-            {(["patient", "doctor"] as const).map((r) => (
+            {(["patient", "doctor", "admin"] as const).map((r) => (
               <button
                 key={r}
                 type="button"
@@ -58,7 +61,7 @@ export default function LoginPage() {
                   tab === r ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
                 }`}
               >
-                {r} Login
+                {r === "admin" ? "Admin" : `${r} Login`}
               </button>
             ))}
           </div>
@@ -119,12 +122,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-          <p className="text-sm text-muted-foreground text-center mt-6">
-            Don't have an account?{" "}
-            <Link to={`/register?role=${tab}`} className="text-teal hover:underline">
-              Register
-            </Link>
-          </p>
+          {tab !== "admin" && (
+            <p className="text-sm text-muted-foreground text-center mt-6">
+              Don't have an account?{" "}
+              <Link to={`/register?role=${tab}`} className="text-teal hover:underline">
+                Register
+              </Link>
+            </p>
+          )}
         </div>
       </div>
     </div>
