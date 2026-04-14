@@ -1,18 +1,21 @@
 import { Router } from "express";
 import {
-  createRoomHandler,
   createConsultationHandler,
+  getConsultationsByDoctorIdHandler,
+  getConsultationsByPatientIdHandler,
   getConsultationByIdHandler,
   listConsultationsHandler,
-  reopenRoomHandler,
   updateConsultationStatusHandler,
 } from "./consultation.controller.js";
 
 export const consultationRouter = Router();
 
-consultationRouter.post("/rooms", createRoomHandler);
-consultationRouter.patch("/rooms/:roomKey/reopen", reopenRoomHandler);
 consultationRouter.get("/", listConsultationsHandler);
+consultationRouter.get("/doctor/:doctorId", getConsultationsByDoctorIdHandler);
+consultationRouter.get(
+  "/patient/:patientId",
+  getConsultationsByPatientIdHandler,
+);
 consultationRouter.get("/:id", getConsultationByIdHandler);
 consultationRouter.post("/", createConsultationHandler);
 consultationRouter.patch("/:id/status", updateConsultationStatusHandler);

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * APT-02: POST   /api/appointments              → book appointment
@@ -36,11 +37,21 @@ public class AppointmentController {
     public ResponseEntity<AppointmentResponse> bookAppointment(
             @Valid @RequestBody BookAppointmentRequest request,
             Authentication auth) {
-
+    
         String patientId = auth.getName(); // set by JwtAuthFilter from x-user-id
         AppointmentResponse response = appointmentService.bookAppointment(patientId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+    
+    // TEMP: bypass JWT/authentication and use a generated patient id for local testing.
+    // public ResponseEntity<AppointmentResponse> bookAppointment(
+    //         @RequestBody(required = false) BookAppointmentRequest request) {
+
+    //     // TEMP: bypass JWT/authentication and use a generated patient id for local testing.
+    //     String patientId = "temp-patient-" + UUID.randomUUID();
+    //     AppointmentResponse response = appointmentService.bookAppointment(patientId, request);
+    //     return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    // }
 
     /** APT-03 — list calling patient's own appointments */
     @GetMapping("/my")

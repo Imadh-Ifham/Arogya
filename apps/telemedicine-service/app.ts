@@ -1,9 +1,9 @@
 import cors from "cors";
 import express from "express";
-import { apiRouter } from "./routes/index.js";
-import { logger } from "./shared/logger.js";
-import { errorHandler } from "./shared/http/error-handler.js";
-import { notFoundHandler } from "./shared/http/not-found.js";
+import { apiRouter } from "./src/routes/index.js";
+import { logger } from "./src/shared/logger.js";
+import { errorHandler } from "./src/shared/http/error-handler.js";
+import { notFoundHandler } from "./src/shared/http/not-found.js";
 
 export function buildApp() {
   const app = express();
@@ -15,7 +15,7 @@ export function buildApp() {
     next();
   });
 
-  app.use("/api/v1", apiRouter);
+  app.use("/api/v1/telemedicine", apiRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -38,6 +38,9 @@ public class AppConfig {
      * a non-JSON body (e.g. an HTML error page) — those exceptions are NOT
      * RestClientException subclasses and therefore escaped the catch clauses.
      */
+    @Value("${services.telemedicine.consultation-expiration-hours:24}")
+    private Integer telemedicineConsultationExpirationHours;
+
     @Bean
     public RestTemplate restTemplate(ObjectMapper objectMapper) {
         RestTemplate rt = new RestTemplate();
@@ -69,5 +72,10 @@ public class AppConfig {
     @Bean
     public String patientServiceUrl() {
         return patientServiceUrl;
+    }
+    
+    @Bean
+    public Integer telemedicineConsultationExpirationHours() {
+        return telemedicineConsultationExpirationHours;
     }
 }
