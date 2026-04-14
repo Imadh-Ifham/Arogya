@@ -20,7 +20,7 @@
 #   Appointment Svc   http://localhost:8084
 #   Telemedicine Svc  http://localhost:8086
 #   AI Symptom Chkr   http://localhost:8089
-#   Payment Stub      http://localhost:3001
+#   Payment Service   http://localhost:8087
 #   Notification Stub http://localhost:3002
 # =============================================================================
 
@@ -47,7 +47,6 @@ volumes:
 # Services
 # ---------------------------------------------------------------------------
 services:
-
   # ===========================================================================
   # INFRASTRUCTURE
   # ===========================================================================
@@ -97,7 +96,8 @@ services:
     networks:
       - arogya-net
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -108,30 +108,42 @@ services:
   # ===========================================================================
 
   # -------------------------------------------------------------------------
-  # Payment Stub — Port 3001
-  # Simulates payment gateway (PayHere). Always returns SUCCESS for dev.
-  # POST /api/payments/initiate → { paymentId, status: "SUCCESS" }
+  # Payment Service — Node.js/Express — Port 8087
+  # Stripe-based payment processing, checkout sessions, webhooks, receipts.
+  # POST /api/payments/initiate — create checkout session
+  # POST /api/payments/webhook  — Stripe webhook handler
+  # GET  /api/payments/me       — patient payment history
+  # GET  /api/payments/doctor/me — doctor payment dashboard
+  # GET  /api/payments/:id      — single payment / receipt
+  # GET  /health                — health check
   # -------------------------------------------------------------------------
-  # payment-service:
-  #   build:
-  #     context: ../../apps/payment-service
-  #     dockerfile: Dockerfile
-  #   image: arogya/payment-service:latest
-  #   container_name: arogya-payment-service
-  #   restart: unless-stopped
-  #   environment:
-  #     PORT: 3001
-  #     NODE_ENV: production
-  #   ports:
-  #     - "3001:3001"
-  #   networks:
-  #     - arogya-net
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 10s
+  payment-service:
+    build:
+      context: ../../apps/payment-service
+      dockerfile: Dockerfile
+    image: arogya/payment-service:latest
+    container_name: arogya-payment-service
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      PORT: 8087
+      NODE_ENV: production
+      MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_payments?authSource=admin
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "8087:8087"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   # -------------------------------------------------------------------------
   # Notification MongoDB — dedicated store for notification logs & templates
@@ -152,7 +164,8 @@ services:
     networks:
       - arogya-net
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -245,7 +258,11 @@ services:
     networks:
       - arogya-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/api/auth/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8081/api/auth/health || exit 1",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -280,7 +297,11 @@ services:
     networks:
       - arogya-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8082/actuator/health || exit 1",
+        ]
       interval: 20s
       timeout: 10s
       retries: 5
@@ -315,7 +336,11 @@ services:
     networks:
       - arogya-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8083/actuator/health || exit 1",
+        ]
       interval: 20s
       timeout: 10s
       retries: 5
@@ -351,7 +376,11 @@ services:
     networks:
       - arogya-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8084/actuator/health || exit 1",
+        ]
       interval: 20s
       timeout: 10s
       retries: 5
@@ -468,7 +497,7 @@ services:
       TELEMEDICINE_SERVICE_URL: http://telemedicine-service:8086
       AI_SERVICE_URL: http://ai-symptom-checker:8089
       NOTIFICATION_SERVICE_URL: http://notification-service:3002
-      PAYMENT_SERVICE_URL: http://payment-service:3001
+      PAYMENT_SERVICE_URL: http://payment-service:8087
     ports:
       - "3000:3000"
     networks:

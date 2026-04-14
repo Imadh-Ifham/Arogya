@@ -698,11 +698,13 @@ Use any future expiry date and any 3-digit CVC.
 
 ---
 
-### Phase 6 — Kafka producer (optional)
+### Phase 6 — Kafka producer (optional) ✅ DONE (commented out)
 
 **What**: KafkaJS producer that emits `payment.completed` after SUCCESS webhook. Gracefully disabled if `KAFKA_BROKER` is unset.
 
 **Deliverable**: If Kafka is running, event published. If not, warning logged.
+
+**Status**: Files created with full implementation but **entirely commented out**. Uncomment and wire into `handleCheckoutCompleted()` when Kafka is ready.
 
 **Files created**:
 
@@ -711,11 +713,13 @@ Use any future expiry date and any 3-digit CVC.
 
 ---
 
-### Phase 7 — Dockerfile + infrastructure + appointment-service updates
+### Phase 7 — Dockerfile + infrastructure + appointment-service updates ✅ DONE (partial)
 
-**What**: Uncomment Dockerfile, update docker-compose.dev.yml, fix port references, AND apply the 3 required Java code changes in appointment-service.
+**What**: Uncomment Dockerfile, update docker-compose.dev.yml, fix port references. Appointment-service changes documented separately.
 
-**Deliverable**: `docker compose up` starts payment-service on :8087. Booking flow ends at PENDING (no premature payment). Doctor accept triggers payment. Both ports corrected.
+**Deliverable**: `docker compose up` starts payment-service on :8087. API Gateway routes to port 8087.
+
+**Status**: Dockerfile and docker-compose changes applied. Appointment-service Java code changes are **not applied** — they are documented in `docs/appointment-service-integration.md` for the appointment-service team to implement.
 
 **Files updated**:
 
@@ -734,13 +738,17 @@ Use any future expiry date and any 3-digit CVC.
 
 ---
 
-### Phase 8 — Delete stub + cleanup
+### Phase 8 — Delete stub + cleanup ✅ DONE
 
 **What**: Remove `index.js` (the old Express stub). Update README.
 
 **Files deleted**:
 
 - `apps/payment-service/index.js`
+
+**Files updated**:
+
+- `apps/payment-service/README.md` — replaced placeholder with actual service documentation
 
 ---
 
