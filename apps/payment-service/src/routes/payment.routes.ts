@@ -4,7 +4,11 @@ import {
   initiatePaymentController,
   webhookController,
   devSimulateController,
+  getMyPaymentsController,
+  getDoctorPaymentsController,
+  getPaymentByIdController,
 } from "../controllers/payment.controller";
+import { requireUser, requireRole } from "../middleware/auth.middleware";
 import { env } from "../config/env";
 
 const router = Router();
@@ -30,6 +34,24 @@ if (env.nodeEnv === "development") {
   router.post("/dev/simulate-success/:paymentId", devSimulateController);
 }
 
-// TODO: Phase 5 — GET /api/payments/me, GET /api/payments/doctor/me, GET /api/payments/:id
+// ─── GET /api/payments/me ──────────────────────────────────────────────────────
+// Patient payment history (paginated, filterable by status).
+// Requires x-user-id header from API Gateway.
+router.get("/me", requireUser, getMyPaymentsController);
+
+// ─── GET /api/payments/doctor/me ──────────────────────────────────────────────
+// Doctor payment dashboard with summary aggregation.
+// Requires doctor or admin role.
+router.get(
+  "/doctor/me",
+  requireUser,
+  requireRole("doctor", "admin"),
+  getDoctorPaymentsController,
+);
+
+// ─── GET /api/payments/:id ────────────────────────────────────────────────────
+// Single payment details / receipt. Accessible by patient, doctor, or admin.
+// MUST be after /me and /doctor/me to avoid matching "me" as :id.
+router.get("/:id", requireUser, getPaymentByIdController);
 
 export default router;

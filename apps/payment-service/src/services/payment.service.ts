@@ -313,3 +313,97 @@ export const devSimulateSuccess = async (
     receipt: payment.receipt,
   };
 };
+
+// =============================================================================
+// PAYMENT HISTORY + SINGLE PAYMENT
+// =============================================================================
+
+/**
+ * Patient payment history — paginated, filterable by status.
+ * Used by GET /api/payments/me
+ */
+export const getPatientPayments = async (
+  patientId: string,
+  options: { status?: string; page?: number; limit?: number },
+) => {
+  const { status, page = 1, limit = 20 } = options;
+  const skip = (page - 1) * limit;
+
+  const filter: Record<string, unknown> = { patientId };
+  if (status && ["PENDING", "SUCCESS", "FAILED"].includes(status)) {
+    filter.status = status;
+  }
+
+  const [payments, total] = await Promise.all([
+    Payment.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Payment.countDocuments(filter),
+  ]);
+
+  return { payments, total, page, limit };
+};
+
+/**
+ * Doctor payment dashboard — paginated, filterable, with summary aggregation.
+ * Used by GET /api/payments/doctor/me
+ */
+export const getDoctorPayments = async (
+  doctorId: string,
+  options: { status?: string; page?: number; limit?: number },
+) => {
+  const { status, page = 1, limit = 20 } = options;
+  const skip = (page - 1) * limit;
+
+  const filter: Record<string, unknown> = { doctorId };
+  if (status && ["PENDING", "SUCCESS", "FAILED"].includes(status)) {
+    filter.status = status;
+  }
+
+  // Run paginated query and summary aggregation in parallel
+  const [payments, total, summaryResult] = await Promise.all([
+    Payment.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Payment.countDocuments(filter),
+    Payment.aggregate([
+      { $match: { doctorId } },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$amount" },
+        },
+      },
+    ]),
+  ]);
+
+  // Build summary from aggregation
+  const summary = {
+    totalPending: 0,
+    totalSuccess: 0,
+    totalFailed: 0,
+    totalReceived: 0,
+  };
+
+  for (const entry of summaryResult) {
+    switch (entry._id) {
+      case "PENDING":
+        summary.totalPending = entry.count;
+        break;
+      case "SUCCESS":
+        summary.totalSuccess = entry.count;
+        summary.totalReceived = entry.totalAmount;
+        break;
+      case "FAILED":
+        summary.totalFailed = entry.count;
+        break;
+    }
+  }
+
+  return { payments, total, page, limit, summary };
+};
+
+/**
+ * Single payment by paymentId.
+ * Used by GET /api/payments/:id
+ */
+export const getPaymentById = async (paymentId: string) => {
+  return Payment.findOne({ paymentId }).lean();
+};

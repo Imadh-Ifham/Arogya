@@ -613,7 +613,7 @@ You need to tell Stripe where to send payment events (webhooks). Two options:
 
 Use any future expiry date and any 3-digit CVC.
 
-### Phase 1 — Project scaffolding
+### Phase 1 — Project scaffolding ✅ DONE
 
 **What**: `package.json`, `tsconfig.json`, `.env.example`, folder structure, `src/main.ts` (Express server skeleton with health endpoint only)
 
@@ -630,7 +630,7 @@ Use any future expiry date and any 3-digit CVC.
 
 ---
 
-### Phase 2 — MongoDB models + connection
+### Phase 2 — MongoDB models + connection ✅ DONE
 
 **What**: Mongoose connection, Payment + PaymentEvent schemas
 
@@ -644,7 +644,7 @@ Use any future expiry date and any 3-digit CVC.
 
 ---
 
-### Phase 3 — `POST /api/payments/initiate` (PAY-02 + PAY-03)
+### Phase 3 — `POST /api/payments/initiate` (PAY-02 + PAY-03) ✅ DONE
 
 **What**: Stripe client init, payment initiation endpoint
 
@@ -663,11 +663,13 @@ Use any future expiry date and any 3-digit CVC.
 
 ---
 
-### Phase 4 — Webhook handling (PAY-04)
+### Phase 4 — Webhook handling (PAY-04) ✅ DONE
 
 **What**: Stripe webhook endpoint with signature verification, payment status update, receipt generation
 
 **Deliverable**: Stripe CLI `stripe listen --forward-to localhost:8087/api/payments/webhook` triggers SUCCESS flow. Payment updated to SUCCESS with receipt. Dev simulate endpoint available.
+
+**Also created**: `scripts/start-dev.ps1` — one-command startup that runs both Stripe CLI listener and payment-service, cleans up on Ctrl+C. `POST /api/payments/dev/simulate-success/:paymentId` — dev-only endpoint to skip Stripe checkout and mark payment SUCCESS.
 
 **Files created/updated**:
 
@@ -680,11 +682,13 @@ Use any future expiry date and any 3-digit CVC.
 
 ---
 
-### Phase 5 — Payment history + receipt (PAY-05 + PAY-06)
+### Phase 5 — Payment history + receipt (PAY-05 + PAY-06) ✅ DONE
 
 **What**: `GET /api/payments/me` (patient history, paginated) + `GET /api/payments/doctor/me` (doctor dashboard with summary) + `GET /api/payments/:id` (single payment / receipt, accessible by patient or doctor)
 
 **Deliverable**: Patient can fetch their payment history (PENDING/SUCCESS/FAILED with CTAs). Doctor can see all payment statuses for their consultations with totals summary. Both can view individual receipt.
+
+**Verified**: All 3 endpoints tested — patient history with pagination + status filter, doctor dashboard with summary aggregation (totalPending/totalSuccess/totalFailed/totalReceived), single payment with authorization (patient owner, doctor, admin allowed; others get 403).
 
 **Files updated**:
 

@@ -3,6 +3,9 @@ import {
   initiatePayment,
   handleWebhook,
   devSimulateSuccess,
+  getPatientPayments,
+  getDoctorPayments,
+  getPaymentById,
 } from "../services/payment.service";
 import { sendSuccess, sendError } from "../utils/apiResponse";
 import { InitiatePaymentBody } from "../types/payment.types";
@@ -98,5 +101,92 @@ export const devSimulateController = async (
     const message = error instanceof Error ? error.message : "Simulation error";
     console.error("[Controller] devSimulate error:", message);
     sendError(res, message, 400);
+  }
+};
+
+/**
+ * GET /api/payments/me
+ *
+ * Patient payment history — paginated, filterable by status.
+ * Reads patientId from x-user-id header (injected by API Gateway).
+ */
+export const getMyPaymentsController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const patientId = req.headers["x-user-id"] as string;
+    const status = req.query.status as string | undefined;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+
+    const result = await getPatientPayments(patientId, { status, page, limit });
+    sendSuccess(res, result, "Payment history retrieved");
+  } catch (error) {
+    console.error("[Controller] getMyPayments error:", error);
+    sendError(res, "Failed to retrieve payment history");
+  }
+};
+
+/**
+ * GET /api/payments/doctor/me
+ *
+ * Doctor payment dashboard — paginated, filterable, with summary.
+ * Reads doctorId from x-user-id header (injected by API Gateway).
+ */
+export const getDoctorPaymentsController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const doctorId = req.headers["x-user-id"] as string;
+    const status = req.query.status as string | undefined;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+
+    const result = await getDoctorPayments(doctorId, { status, page, limit });
+    sendSuccess(res, result, "Payment dashboard retrieved");
+  } catch (error) {
+    console.error("[Controller] getDoctorPayments error:", error);
+    sendError(res, "Failed to retrieve payment dashboard");
+  }
+};
+
+/**
+ * GET /api/payments/:id
+ *
+ * Single payment details / receipt.
+ * Accessible by the patient who owns it, the doctor on the appointment, or an admin.
+ */
+export const getPaymentByIdController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const paymentId = req.params.id as string;
+    const userId = req.headers["x-user-id"] as string;
+    const userRole = req.headers["x-user-role"] as string;
+
+    const payment = await getPaymentById(paymentId);
+
+    if (!payment) {
+      sendError(res, "Payment not found", 404);
+      return;
+    }
+
+    // Authorization: patient, doctor on this appointment, or admin
+    const isOwner = payment.patientId === userId;
+    const isDoctor = payment.doctorId === userId;
+    const isAdmin = userRole === "admin";
+
+    if (!isOwner && !isDoctor && !isAdmin) {
+      sendError(res, "Not authorized to view this payment", 403);
+      return;
+    }
+
+    sendSuccess(res, payment, "Payment details retrieved");
+  } catch (error) {
+    console.error("[Controller] getPaymentById error:", error);
+    sendError(res, "Failed to retrieve payment details");
   }
 };
