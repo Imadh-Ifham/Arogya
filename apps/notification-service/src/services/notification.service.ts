@@ -99,10 +99,15 @@ const dispatchEmail = async (
     htmlBody: body,
   });
 
+  // In development, providerResponse includes the Ethereal preview URL
+  const providerResponse = result.previewUrl
+    ? JSON.stringify({ previewUrl: result.previewUrl })
+    : result.providerResponse;
+
   await NotificationLog.findByIdAndUpdate(log._id, {
     status: result.success ? "SENT" : "FAILED",
     providerMessageId: result.providerMessageId,
-    providerResponse: result.providerResponse,
+    providerResponse,
     errorMessage: result.errorMessage,
     sentAt: result.success ? new Date() : undefined,
     failedAt: result.success ? undefined : new Date(),
