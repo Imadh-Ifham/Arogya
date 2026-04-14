@@ -12,8 +12,6 @@
 #   make reset  — stop and remove all volumes
 # =============================================================================
 
-version: "3.9"
-
 # ---------------------------------------------------------------------------
 # Networks
 # ---------------------------------------------------------------------------
@@ -53,12 +51,16 @@ services:
     environment:
       POSTGRES_USER: arogya
       POSTGRES_PASSWORD: arogya_secret
+      POSTGRES_MULTIPLE_DATABASES: arogya_users,arogya_appointments,arogya_prescriptions,arogya_patients
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
       POSTGRES_MULTIPLE_DATABASES: arogya_users,arogya_appointments,arogya_prescriptions,arogya_doctors
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - arogya-net
     healthcheck:
@@ -388,6 +390,11 @@ services:
   auth-service:
     image: arogya/auth-service:latest
     container_name: arogya-auth-service
+  # AI Symptom Checker Service — Port 8089
+  # -------------------------------------------------------------------------
+  ai-symptom-checker-service:
+    image: arogya/ai-symptom-checker-service:latest
+    container_name: arogya-ai-symptom-checker
     restart: unless-stopped
     depends_on:
       mongodb:
@@ -407,6 +414,19 @@ services:
       - arogya-net
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/api/auth/health || exit 1"]
+      PORT: 8089
+      NODE_ENV: production
+      MONGO_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_ai?authSource=admin
+      JWT_SECRET: ${JWT_SECRET}
+      AI_API_KEY: ${AI_API_KEY}
+      AI_API_ENDPOINT: ${AI_API_ENDPOINT}
+      AI_MODEL: ${AI_MODEL}
+    ports:
+      - "8089:8089"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8089/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -438,3 +458,51 @@ services:
   #       condition: service_healthy
   #   networks:
   #     - arogya-net
+  # Patient Service - Port 8082
+  # -------------------------------------------------------------------------
+  patient-service:
+    build:
+      context: ../../apps/patient-service
+      dockerfile: Dockerfile
+    image: arogya/patient-service:latest
+    container_name: arogya-patient-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # Keep Kafka wiring in env for later, but don't block patient-service
+      # startup on Kafka while the service is still being developed locally.
+      # kafka:
+      #   condition: service_healthy
+    environment:
+      SERVER_PORT: 8082
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/arogya_patients
+      SPRING_DATASOURCE_USERNAME: arogya
+      SPRING_DATASOURCE_PASSWORD: arogya_secret
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8082:8082"
+    networks:
+      - arogya-net
+      
+    
+      # Doctor Service — Port 8083
+  doctor-service:
+    image: arogya/doctor-service:latest
+    container_name: doctor-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SERVER_PORT=8083
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/arogya_doctors
+      - SPRING_DATASOURCE_USERNAME=arogya
+      - SPRING_DATASOURCE_PASSWORD=arogya_secret
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - AUTH_SERVICE_URL=http://auth-service:8081
+    depends_on:
+      - postgres
+      - kafka
+    networks:
+      - arogya-net
