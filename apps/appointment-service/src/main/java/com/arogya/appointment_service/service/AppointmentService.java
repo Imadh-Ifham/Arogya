@@ -15,12 +15,16 @@ import com.arogya.appointment_service.exception.UnauthorizedException;
 import com.arogya.appointment_service.repository.AppointmentRepository;
 import com.arogya.appointment_service.repository.AppointmentSlotRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AppointmentService {
 
@@ -35,12 +39,68 @@ public class AppointmentService {
      *         If two requests try to mark the same slot BOOKED simultaneously, the
      *         second transaction throws OptimisticLockingFailureException → 409.
      */
+    /*
+    @Transactional
+    public AppointmentResponse bookAppointment(String patientId, BookAppointmentRequest request) {
+        // TEMP (dev only): bypass slot/doctor validations and external service calls.
+        String resolvedPatientId =
+            (patientId == null || patientId.isBlank())
+                ? UUID.randomUUID().toString()
+                : patientId;
+        String resolvedSlotId =
+            (request == null || request.getSlotId() == null || request.getSlotId().isBlank())
+                ? UUID.randomUUID().toString()
+                : request.getSlotId();
+        if (resolvedPatientId.length() > 36) {
+            resolvedPatientId = resolvedPatientId.substring(0, 36);
+        }
+        if (resolvedSlotId.length() > 36) {
+            resolvedSlotId = resolvedSlotId.substring(0, 36);
+        }
+        String resolvedDoctorId = UUID.randomUUID().toString();
+        AppointmentType resolvedType =
+            (request == null || request.getAppointmentType() == null)
+                ? AppointmentType.ONLINE
+                : request.getAppointmentType();
+
+        Appointment appointment = new Appointment();
+        appointment.setPatientId(resolvedPatientId);
+        appointment.setDoctorId(resolvedDoctorId);
+        appointment.setSlotId(resolvedSlotId);
+        appointment.setStatus(AppointmentStatus.PENDING);
+        appointment.setAppointmentType(resolvedType);
+
+        Appointment saved = appointmentRepository.save(appointment);
+
+        if (resolvedType == AppointmentType.ONLINE) {
+            try {
+                String meetingUrl = telemedicineClient.createSession(
+                        saved.getId(),
+                        resolvedPatientId,
+                        resolvedDoctorId,
+                        LocalDateTime.now().plusMinutes(5),
+                        null);
+                saved.setMeetingUrl(meetingUrl);
+                saved = appointmentRepository.save(saved);
+            } catch (RuntimeException ex) {
+                // TEMP: preserve booking flow during local testing even if telemedicine is down.
+                log.warn("Telemedicine session creation failed for appointment {}. Falling back to temp URL.",
+                        saved.getId());
+                saved.setMeetingUrl("https://meet.jit.si/arogya-temp-" + UUID.randomUUID());
+                saved = appointmentRepository.save(saved);
+            }
+        }
+
+        return AppointmentResponse.from(saved);
+    }
+    */
+
     @Transactional
     public AppointmentResponse bookAppointment(String patientId, BookAppointmentRequest request) {
         // Validates slot exists and is AVAILABLE; throws SlotNotAvailableException otherwise
         AppointmentSlot slot = slotService.getAvailableSlotForBooking(request.getSlotId());
 
-        // Mark slot as BOOKED — @Version check fires here (APT-07)
+        // Mark slot as BOOKED - @Version check fires here (APT-07)
         slot.setStatus(SlotStatus.BOOKED);
         slotRepository.save(slot);
 
@@ -57,7 +117,7 @@ public class AppointmentService {
         // If the call fails the whole transaction rolls back, releasing the slot.
         if (request.getAppointmentType() == AppointmentType.ONLINE) {
             String meetingUrl = telemedicineClient.createSession(
-                    saved.getId(), patientId, slot.getDoctorId());
+                    saved.getId(), patientId, slot.getDoctorId(), slot.getStartTime(), null);
             saved.setMeetingUrl(meetingUrl);
             saved = appointmentRepository.save(saved);
         }

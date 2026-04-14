@@ -1,14 +1,15 @@
 import { Types } from "mongoose";
-import { ConsultationRoomModel } from "./consultation-room.model.js";
 import { ConsultationModel } from "./consultation.model.js";
 import type {
-  ConsultationRoomStatus,
-  ConsultationRoomView,
   ConsultationStatus,
   ConsultationView,
-  CreateConsultationRoomInput,
   CreateConsultationInput,
 } from "./consultation.types.js";
+import type { ConsultationRoomView } from "../rooms/room.types.js";
+import {
+  findConsultationRoomById,
+  getConsultationRoomsMap,
+} from "../rooms/room.repository.js";
 
 interface ConsultationDocumentView {
   _id: Types.ObjectId;
@@ -20,38 +21,6 @@ interface ConsultationDocumentView {
   roomId: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
-}
-
-interface ConsultationRoomDocumentView {
-  _id: Types.ObjectId;
-  doctorId: string;
-  patientId: string;
-  roomKey: string;
-  meetingProvider: "jitsi";
-  jitsiRoomName: string;
-  jitsiRoomUrl: string;
-  status: ConsultationRoomStatus;
-  expiresAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-function mapRoomToView(
-  model: ConsultationRoomDocumentView,
-): ConsultationRoomView {
-  return {
-    id: model._id.toString(),
-    doctorId: model.doctorId,
-    patientId: model.patientId,
-    roomKey: model.roomKey,
-    meetingProvider: model.meetingProvider,
-    jitsiRoomName: model.jitsiRoomName,
-    jitsiRoomUrl: model.jitsiRoomUrl,
-    status: model.status,
-    expiresAt: model.expiresAt,
-    createdAt: model.createdAt,
-    updatedAt: model.updatedAt,
-  };
 }
 
 function mapMeetingToView(
@@ -71,84 +40,15 @@ function mapMeetingToView(
   };
 }
 
-async function getRoomsMap(
-  roomIds: Types.ObjectId[],
-): Promise<Map<string, ConsultationRoomView>> {
-  const uniqueIds = Array.from(
-    new Set(roomIds.map((roomId) => roomId.toString())),
-  );
-  const objectIds = uniqueIds.map((id) => new Types.ObjectId(id));
-  const rooms = (await ConsultationRoomModel.find({
-    _id: { $in: objectIds },
-  }).lean()) as ConsultationRoomDocumentView[];
-
-  return new Map(
-    rooms.map((room) => [room._id.toString(), mapRoomToView(room)]),
-  );
-}
-
-export async function createConsultationRoom(
-  input: CreateConsultationRoomInput,
-  roomData: {
-    roomKey: string;
-    meetingProvider: "jitsi";
-    jitsiRoomName: string;
-    jitsiRoomUrl: string;
-  },
-): Promise<ConsultationRoomView> {
-  const created = (await ConsultationRoomModel.create({
-    ...input,
-    ...roomData,
-    status: "open",
-  })) as unknown as ConsultationRoomDocumentView;
-
-  return mapRoomToView(created);
-}
-
-export async function findConsultationRoomByParticipants(
-  doctorId: string,
-  patientId: string,
-): Promise<ConsultationRoomView | null> {
-  const room = (await ConsultationRoomModel.findOne({
-    doctorId,
-    patientId,
-  }).lean()) as ConsultationRoomDocumentView | null;
-
-  return room ? mapRoomToView(room) : null;
-}
-
-export async function findConsultationRoomByKey(
-  roomKey: string,
-): Promise<ConsultationRoomView | null> {
-  const room = (await ConsultationRoomModel.findOne({
-    roomKey,
-  }).lean()) as ConsultationRoomDocumentView | null;
-
-  return room ? mapRoomToView(room) : null;
-}
-
-export async function updateConsultationRoom(
-  roomId: string,
-  updates: Partial<
-    Omit<
-      ConsultationRoomView,
-      "id" | "doctorId" | "patientId" | "createdAt" | "updatedAt"
-    >
-  >,
-): Promise<ConsultationRoomView | null> {
-  const room = (await ConsultationRoomModel.findByIdAndUpdate(roomId, updates, {
-    returnDocument: "after",
-  }).lean()) as ConsultationRoomDocumentView | null;
-
-  return room ? mapRoomToView(room) : null;
-}
-
 export async function createConsultation(
   input: CreateConsultationInput,
   room: ConsultationRoomView,
 ): Promise<ConsultationView> {
   const created = (await ConsultationModel.create({
-    ...input,
+    appointmentId: input.appointmentId,
+    patientId: input.patientId,
+    doctorId: input.doctorId,
+    startsAt: input.startsAt,
     roomId: room.id,
     status: "scheduled",
   })) as unknown as ConsultationDocumentView;
@@ -160,7 +60,9 @@ export async function listConsultations(): Promise<ConsultationView[]> {
   const consultations = (await ConsultationModel.find()
     .sort({ startsAt: 1 })
     .lean()) as ConsultationDocumentView[];
-  const roomsMap = await getRoomsMap(consultations.map((item) => item.roomId));
+  const roomsMap = await getConsultationRoomsMap(
+    consultations.map((item) => item.roomId),
+  );
 
   return consultations
     .map((consultation) => {
@@ -186,15 +88,12 @@ export async function findConsultationById(
     return null;
   }
 
-  const room = await ConsultationRoomModel.findById(consultation.roomId).lean();
+  const room = await findConsultationRoomById(consultation.roomId.toString());
   if (!room) {
     return null;
   }
 
-  return mapMeetingToView(
-    consultation,
-    mapRoomToView(room as ConsultationRoomDocumentView),
-  );
+  return mapMeetingToView(consultation, room);
 }
 
 export async function updateConsultationStatus(
@@ -211,25 +110,10 @@ export async function updateConsultationStatus(
     return null;
   }
 
-  const room = await ConsultationRoomModel.findById(consultation.roomId).lean();
+  const room = await findConsultationRoomById(consultation.roomId.toString());
   if (!room) {
     return null;
   }
 
-  return mapMeetingToView(
-    consultation,
-    mapRoomToView(room as ConsultationRoomDocumentView),
-  );
-}
-
-export async function markRoomAsExpiredIfNeeded(
-  room: ConsultationRoomView,
-): Promise<ConsultationRoomView> {
-  const isExpired = room.expiresAt.getTime() <= Date.now();
-  if (!isExpired || room.status === "expired") {
-    return room;
-  }
-
-  const updated = await updateConsultationRoom(room.id, { status: "expired" });
-  return updated ?? room;
+  return mapMeetingToView(consultation, room);
 }
