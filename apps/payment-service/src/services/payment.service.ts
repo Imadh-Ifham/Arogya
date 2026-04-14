@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import Stripe from "stripe";
 import { stripe } from "../config/stripe";
 import { env } from "../config/env";
 import { Payment } from "../models/payment.model";
@@ -7,6 +8,7 @@ import {
   InitiatePaymentBody,
   InitiatePaymentResponse,
 } from "../types/payment.types";
+import { generateReceiptNumber } from "../utils/receipt";
 
 /**
  * Creates a Stripe Checkout Session and saves a PENDING payment record.
@@ -106,5 +108,208 @@ export const initiatePayment = async (
     status: "PENDING",
     amount: payment.amount,
     currency: payment.currency,
+  };
+};
+
+// =============================================================================
+// WEBHOOK HANDLING
+// =============================================================================
+
+/**
+ * Verifies and processes Stripe webhook events.
+ *
+ * Handles:
+ *  - checkout.session.completed → mark SUCCESS, generate receipt
+ *  - checkout.session.expired   → mark FAILED
+ *
+ * Idempotent: if payment is already SUCCESS, returns 200 without changes.
+ * Stripe retries webhooks if it doesn't get 200, so we always return 200
+ * for events we recognize (even if the payment is missing — just log a warning).
+ */
+export const handleWebhook = async (
+  rawBody: Buffer,
+  signature: string,
+): Promise<{ received: boolean }> => {
+  // ─── 1. Verify signature ──────────────────────────────────────────────────
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      rawBody,
+      signature,
+      env.stripe.webhookSecret,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    throw new Error(`Webhook signature verification failed: ${message}`);
+  }
+
+  // ─── 2. Log raw event ─────────────────────────────────────────────────────
+  console.log(`[Webhook] Received event: ${event.type} (${event.id})`);
+
+  // ─── 3. Route by event type ───────────────────────────────────────────────
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await handleCheckoutCompleted(session);
+      break;
+    }
+    case "checkout.session.expired": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await handleCheckoutFailed(session, "EXPIRED");
+      break;
+    }
+    default:
+      console.log(`[Webhook] Unhandled event type: ${event.type}`);
+  }
+
+  return { received: true };
+};
+
+/**
+ * checkout.session.completed → Payment SUCCESS + receipt generation.
+ */
+const handleCheckoutCompleted = async (
+  session: Stripe.Checkout.Session,
+): Promise<void> => {
+  const payment = await Payment.findOne({ stripeSessionId: session.id });
+
+  if (!payment) {
+    console.warn(
+      `[Webhook] No payment found for session ${session.id} — ignoring`,
+    );
+    return;
+  }
+
+  // Idempotent: already processed
+  if (payment.status === "SUCCESS") {
+    console.log(
+      `[Webhook] Payment ${payment.paymentId} already SUCCESS — skipping`,
+    );
+    return;
+  }
+
+  // Generate receipt
+  const receipt = {
+    receiptNumber: generateReceiptNumber(),
+    paidAt: new Date(),
+    gatewayReference:
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id || "unknown",
+    method: session.payment_method_types?.[0] || "card",
+  };
+
+  // Update payment
+  payment.status = "SUCCESS";
+  payment.receipt = receipt;
+  await payment.save();
+
+  // Audit log
+  await PaymentEvent.create({
+    paymentId: payment.paymentId,
+    type: "SUCCESS",
+    payload: {
+      stripeSessionId: session.id,
+      paymentIntent: receipt.gatewayReference,
+      receiptNumber: receipt.receiptNumber,
+    },
+  });
+
+  console.log(
+    `[Payment] SUCCESS: ${payment.paymentId} | Receipt: ${receipt.receiptNumber}`,
+  );
+
+  // TODO: Phase 6 — Kafka emit payment.completed
+};
+
+/**
+ * checkout.session.expired or payment failure → Payment FAILED.
+ */
+const handleCheckoutFailed = async (
+  session: Stripe.Checkout.Session,
+  reason: string,
+): Promise<void> => {
+  const payment = await Payment.findOne({ stripeSessionId: session.id });
+
+  if (!payment) {
+    console.warn(
+      `[Webhook] No payment found for session ${session.id} — ignoring`,
+    );
+    return;
+  }
+
+  // Don't revert a successful payment
+  if (payment.status === "SUCCESS") {
+    console.log(
+      `[Webhook] Payment ${payment.paymentId} already SUCCESS — not marking FAILED`,
+    );
+    return;
+  }
+
+  payment.status = "FAILED";
+  await payment.save();
+
+  await PaymentEvent.create({
+    paymentId: payment.paymentId,
+    type: "FAILED",
+    payload: { stripeSessionId: session.id, reason },
+  });
+
+  console.log(`[Payment] FAILED: ${payment.paymentId} (${reason})`);
+};
+
+// =============================================================================
+// DEV-ONLY: Simulate webhook (for testing without Stripe CLI)
+// =============================================================================
+
+/**
+ * Manually marks a payment as SUCCESS. Only available in development.
+ * Useful for quick testing when Stripe CLI isn't running.
+ */
+export const devSimulateSuccess = async (
+  paymentId: string,
+): Promise<{ paymentId: string; status: string; receipt: unknown }> => {
+  if (env.nodeEnv !== "development") {
+    throw new Error("Dev simulate is only available in development mode");
+  }
+
+  const payment = await Payment.findOne({ paymentId });
+  if (!payment) {
+    throw new Error(`Payment not found: ${paymentId}`);
+  }
+
+  if (payment.status === "SUCCESS") {
+    return {
+      paymentId: payment.paymentId,
+      status: payment.status,
+      receipt: payment.receipt,
+    };
+  }
+
+  const receipt = {
+    receiptNumber: generateReceiptNumber(),
+    paidAt: new Date(),
+    gatewayReference: "dev_simulated",
+    method: "card",
+  };
+
+  payment.status = "SUCCESS";
+  payment.receipt = receipt;
+  await payment.save();
+
+  await PaymentEvent.create({
+    paymentId: payment.paymentId,
+    type: "SUCCESS",
+    payload: { simulated: true },
+  });
+
+  console.log(
+    `[Payment] DEV SIMULATED SUCCESS: ${payment.paymentId} | Receipt: ${receipt.receiptNumber}`,
+  );
+
+  return {
+    paymentId: payment.paymentId,
+    status: payment.status,
+    receipt: payment.receipt,
   };
 };
