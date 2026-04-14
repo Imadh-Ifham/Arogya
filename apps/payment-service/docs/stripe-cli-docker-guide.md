@@ -10,10 +10,10 @@ The payment-service uses **Stripe Checkout Sessions** to collect payments. Strip
 
 ### Two Scenarios
 
-| Scenario | How it works | Use case |
-|----------|-------------|----------|
-| **Local dev** | Stripe CLI runs locally, forwards `localhost:8087/webhook` → Stripe | Testing locally during development |
-| **Docker dev** | Stripe CLI runs locally, forwards to Docker network hostname `http://payment-service:8087/webhook` | Testing full docker-compose stack |
+| Scenario       | How it works                                                                                       | Use case                           |
+| -------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| **Local dev**  | Stripe CLI runs locally, forwards `localhost:8087/webhook` → Stripe                                | Testing locally during development |
+| **Docker dev** | Stripe CLI runs locally, forwards to Docker network hostname `http://payment-service:8087/webhook` | Testing full docker-compose stack  |
 
 ---
 
@@ -54,6 +54,7 @@ npm run dev
 ```
 
 Output:
+
 ```
 [ts-node-dev] Starting...
 [Payment Service] Connected to MongoDB
@@ -77,6 +78,7 @@ stripe listen --forward-to localhost:8087/api/payments/webhook
 ```
 
 Output:
+
 ```
 > Ready! Your webhook signing secret is whsec_6243ff67d8811ba47a49b5fe... (^C to quit)
 ```
@@ -100,6 +102,7 @@ curl -X POST http://localhost:8087/api/payments/initiate \
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -188,6 +191,7 @@ docker compose -f infrastructure/docker/docker-compose.dev.yml logs payment-serv
 ```
 
 Output:
+
 ```
 payment-service | [Payment Service] Listening on http://0.0.0.0:8087
 ```
@@ -223,6 +227,7 @@ stripe listen --forward-to http://host.docker.internal:8087/api/payments/webhook
 **Linux**: Replace with the actual Gateway IP from step 4.
 
 Output:
+
 ```
 > Ready! Your webhook signing secret is whsec_... (^C to quit)
 ```
@@ -308,6 +313,7 @@ npm run dev
 **Cause**: `STRIPE_WEBHOOK_SECRET` mismatch between `.env` and Stripe CLI.
 
 **Fix**:
+
 1. Run `stripe listen` and copy the signing secret from its output
 2. Update `.env` with the exact secret
 3. Restart payment-service
@@ -318,6 +324,7 @@ npm run dev
 **Cause** (Docker): Stripe CLI can't resolve `host.docker.internal` or wrong gateway IP
 
 **Fix**:
+
 - Local: Check `docker ps` shows payment-service running, verify port 8087 is open
 - Docker: Use `host.docker.internal` on Windows, or the correct gateway IP on Linux
 - Test: `curl http://localhost:8087/health` (local) or `curl -H "x-user-id: test" -H "x-user-role: test" http://localhost:8087/api/payments/me` (on Docker)
@@ -332,10 +339,10 @@ npm run dev
 
 ## Key Takeaways
 
-| Aspect | Local Dev | Docker Dev |
-|--------|-----------|------------|
-| **Stripe CLI runs** | On host machine | On host machine (not in container) |
-| **Forward to** | `localhost:8087` | `host.docker.internal:8087` (Windows) or gateway IP |
-| **Payment-service** | `npm run dev` | `docker compose up` |
-| **Webhook endpoint** | Direct from Stripe to localhost | Stripe → CLI → Docker network → payment-service |
-| **Quick start** | `.\scripts\start-dev.ps1` | `docker compose up` + separate Stripe CLI |
+| Aspect               | Local Dev                       | Docker Dev                                          |
+| -------------------- | ------------------------------- | --------------------------------------------------- |
+| **Stripe CLI runs**  | On host machine                 | On host machine (not in container)                  |
+| **Forward to**       | `localhost:8087`                | `host.docker.internal:8087` (Windows) or gateway IP |
+| **Payment-service**  | `npm run dev`                   | `docker compose up`                                 |
+| **Webhook endpoint** | Direct from Stripe to localhost | Stripe → CLI → Docker network → payment-service     |
+| **Quick start**      | `.\scripts\start-dev.ps1`       | `docker compose up` + separate Stripe CLI           |
