@@ -550,7 +550,68 @@ KAFKA_TOPIC_PAYMENT_COMPLETED=payment.completed
 
 ---
 
-## 8. Execution Phases
+## 7a. Stripe Sandbox Setup (MANUAL)
+
+> These steps are done once and are required before Phase 4 (webhook handling).
+
+### Already done
+
+- Stripe account created and sandbox mode active
+- Secret key (`sk_test_...`) added to `.env`
+- `POST /api/payments/initiate` creates Stripe Checkout Sessions successfully
+
+### Before Phase 4 — Webhook setup
+
+You need to tell Stripe where to send payment events (webhooks). Two options:
+
+#### Option A: Stripe CLI (for local development — recommended)
+
+1. **Install Stripe CLI**: https://docs.stripe.com/stripe-cli
+
+   ```
+   # Windows (via scoop)
+   scoop install stripe
+
+   # Or download from https://github.com/stripe/stripe-cli/releases
+   ```
+
+2. **Login**:
+   ```
+   stripe login
+   ```
+3. **Forward webhooks to your local server**:
+   ```
+   stripe listen --forward-to localhost:8087/api/payments/webhook
+   ```
+4. The CLI will print a webhook signing secret (`whsec_...`). **Copy it into `.env`**:
+   ```
+   STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxx
+   ```
+5. **Test a payment flow**:
+   - Call `POST /api/payments/initiate` → get `checkoutUrl`
+   - Open `checkoutUrl` in browser
+   - Use test card: `4242 4242 4242 4242`, any future expiry, any CVC
+   - Stripe will fire `checkout.session.completed` → your webhook handles it
+
+#### Option B: Stripe Dashboard (for deployed environments)
+
+1. Go to https://dashboard.stripe.com/test/webhooks
+2. Click "Add endpoint"
+3. URL: `https://your-domain.com/api/payments/webhook`
+4. Events to listen for:
+   - `checkout.session.completed`
+   - `checkout.session.expired`
+5. Copy the signing secret → set as `STRIPE_WEBHOOK_SECRET` in `.env`
+
+### Test card numbers (Stripe sandbox)
+
+| Card Number           | Result    |
+| --------------------- | --------- |
+| `4242 4242 4242 4242` | Success   |
+| `4000 0000 0000 0002` | Declined  |
+| `4000 0000 0000 3220` | 3D Secure |
+
+Use any future expiry date and any 3-digit CVC.
 
 ### Phase 1 — Project scaffolding
 

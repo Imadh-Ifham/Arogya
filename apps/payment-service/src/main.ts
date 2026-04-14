@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import "./config/env";
 import { env } from "./config/env";
 import { connectDatabase } from "./config/database";
+import paymentRoutes from "./routes/payment.routes";
 
 const app = express();
 
@@ -60,8 +61,8 @@ app.get("/health", (_req, res) => {
   res.json({ success: true, service: "payment-service", status: "healthy" });
 });
 
-// ─── Routes (added in later phases) ──────────────────────────────────────────
-// TODO: Phase 3+ — mount payment routes here
+// ─── Routes ──────────────────────────────────────────────────────────────────
+app.use("/api/payments", paymentRoutes);
 
 // ─── 404 catch-all ────────────────────────────────────────────────────────────
 app.use((_req, res) => {
