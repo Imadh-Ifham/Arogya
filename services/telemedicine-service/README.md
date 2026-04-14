@@ -21,6 +21,13 @@ src/
 	routes/
 		index.ts
 	modules/
+		clinical-notes/
+			clinical-notes.routes.ts
+			clinical-notes.controller.ts
+			clinical-notes.service.ts
+			clinical-notes.repository.ts
+			clinical-notes.model.ts
+			clinical-notes.types.ts
 		consultation/
 			consultation.routes.ts
 			consultation.controller.ts
@@ -88,6 +95,28 @@ pnpm start
   - `GET /api/v1/consultations/:id`
   - `POST /api/v1/consultations`
   - `PATCH /api/v1/consultations/:id/status`
+- Clinical notes routes:
+  - `POST /api/v1/telemedicine/consultations/:consultationId/notes`
+  - `GET /api/v1/telemedicine/consultations/:consultationId/notes`
+  - `GET /api/v1/telemedicine/consultations/:consultationId/notes/:noteId`
+  - `PATCH /api/v1/telemedicine/consultations/:consultationId/notes/:noteId`
+  - `PATCH /api/v1/telemedicine/consultations/:consultationId/notes/:noteId/release`
+  - `DELETE /api/v1/telemedicine/consultations/:consultationId/notes/:noteId`
+
+## API Example Docs
+
+- `docs/room-api-examples.md`
+- `docs/consultation-api-examples.md`
+- `docs/chat-api-examples.md`
+- `docs/clinical-notes-api-examples.md`
+
+## UI Blueprint Docs
+
+- `docs/ui/README.md`
+- `docs/ui/business-and-product-plan.md`
+- `docs/ui/user-journeys-and-interactions.md`
+- `docs/ui/technical-architecture.md`
+- `docs/ui/implementation-roadmap.md`
 
 ## Room lifecycle
 
