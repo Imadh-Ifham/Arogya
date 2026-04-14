@@ -16,6 +16,11 @@ public class AppConfig {
     private String appointmentServiceUrl;
 
     @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
+
+    @Bean
     public RestTemplate restTemplate(ObjectMapper objectMapper) {
         RestTemplate rt = new RestTemplate();
         rt.setMessageConverters(List.of(

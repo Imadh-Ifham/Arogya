@@ -17,11 +17,13 @@ import com.arogya.appointment_service.exception.UnauthorizedException;
 import com.arogya.appointment_service.repository.AppointmentRepository;
 import com.arogya.appointment_service.repository.AppointmentSlotRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AppointmentService {
@@ -57,21 +59,33 @@ public class AppointmentService {
 
         Appointment saved = appointmentRepository.save(appointment);
 
-        // For ONLINE appointments, call telemedicine-service to create a video session.
-        // If the call fails the whole transaction rolls back, releasing the slot.
+        // For ONLINE appointments, try to create a telemedicine session.
+        // If the telemedicine-service is unavailable, the booking still succeeds
+        // with meetingUrl = null; the URL can be provisioned later.
         if (request.getAppointmentType() == AppointmentType.ONLINE) {
-            String meetingUrl = telemedicineClient.createSession(
-                    saved.getId(), patientId, slot.getDoctorId());
-            saved.setMeetingUrl(meetingUrl);
-            saved = appointmentRepository.save(saved);
+            try {
+                String meetingUrl = telemedicineClient.createSession(
+                        saved.getId(), patientId, slot.getDoctorId());
+                saved.setMeetingUrl(meetingUrl);
+                saved = appointmentRepository.save(saved);
+            } catch (RuntimeException e) {
+                log.warn("Telemedicine service unavailable for appointment {} — meetingUrl will be null: {}",
+                        saved.getId(), e.getMessage());
+            }
         }
 
-        // Call payment service to initiate payment.
-        // On failure the exception propagates, the transaction rolls back, and the slot is released.
-        String paymentId = paymentClient.initiatePayment(saved.getId(), slot.getFee(), patientId);
-        saved.setPaymentId(paymentId);
-        saved.setStatus(AppointmentStatus.CONFIRMED);
-        saved = appointmentRepository.save(saved);
+        // Initiate payment. If the payment service is unavailable, the appointment is
+        // still created (paymentId = null, status = PENDING) so the patient isn't
+        // blocked. Payment can be retried or reconciled later.
+        try {
+            String paymentId = paymentClient.initiatePayment(saved.getId(), slot.getFee(), patientId);
+            saved.setPaymentId(paymentId);
+            saved.setStatus(AppointmentStatus.CONFIRMED);
+            saved = appointmentRepository.save(saved);
+        } catch (RuntimeException e) {
+            log.warn("Payment service unavailable for appointment {} — proceeding with PENDING status: {}",
+                    saved.getId(), e.getMessage());
+        }
 
         // Fire-and-forget notification — must not fail the booking if notification service is down
         notificationClient.sendAppointmentConfirmed(
