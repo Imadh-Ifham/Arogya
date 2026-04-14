@@ -17,6 +17,12 @@ public class AppointmentResponse {
     private AppointmentStatus status;
     private AppointmentType appointmentType;
     private String paymentId;
+    /**
+     * Stripe Checkout URL — populated immediately after booking (PHYSICAL appointments only).
+     * The frontend should redirect the patient here to complete payment.
+     * Null for ONLINE appointments or once payment is no longer actionable.
+     */
+    private String checkoutUrl;
     private String meetingUrl;
     private String cancellationReason;
     private LocalDateTime createdAt;
@@ -37,6 +43,7 @@ public class AppointmentResponse {
         r.status             = a.getStatus();
         r.appointmentType    = a.getAppointmentType();
         r.paymentId          = a.getPaymentId();
+        r.checkoutUrl        = a.getCheckoutUrl();
         r.meetingUrl         = a.getMeetingUrl();
         r.cancellationReason = a.getCancellationReason();
         r.createdAt          = a.getCreatedAt();

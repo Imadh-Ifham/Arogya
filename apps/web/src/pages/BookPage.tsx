@@ -38,7 +38,13 @@ export default function BookPage() {
 
     const result = await dispatch(bookAppointmentThunk({ slotId, appointmentType }));
     if (bookAppointmentThunk.fulfilled.match(result)) {
-      navigate("/appointments");
+      const { checkoutUrl } = result.payload;
+      if (checkoutUrl) {
+        // PHYSICAL appointment — redirect patient to Stripe Checkout
+        window.location.href = checkoutUrl;
+      } else {
+        navigate("/appointments");
+      }
     }
   };
 
@@ -112,7 +118,11 @@ export default function BookPage() {
             disabled={bookingLoading === "pending" || !slot}
             className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            {bookingLoading === "pending" ? "Booking…" : "Confirm Booking"}
+            {bookingLoading === "pending"
+              ? "Processing…"
+              : appointmentType === "PHYSICAL"
+              ? "Continue to Payment"
+              : "Confirm Booking"}
           </button>
         </form>
       </div>

@@ -18,6 +18,7 @@ public class Doctor {
 
     // Basic Profile
     private String name;
+    private String email;
     private String specialty;
     private String bio;
     private Double consultationFee;

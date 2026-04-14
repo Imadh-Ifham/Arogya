@@ -4,17 +4,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.util.Map;
 
 /**
- * Calls payment-service to initiate payment for a confirmed booking.
+ * Calls payment-service to initiate a Stripe Checkout Session for a booked appointment.
  *
  * Payment-service exposes:
- *   POST /api/payments/initiate  →  { paymentId, status, amount, currency }
+ *   POST /api/payments/initiate
+ *   Request:  { appointmentId, amount, patientId, doctorId, currency }
+ *   Response: { paymentId, checkoutUrl, status, amount, currency }
  */
 @Slf4j
 @Component
@@ -25,30 +26,42 @@ public class PaymentServiceClient {
     private final String paymentServiceUrl;
 
     /**
-     * Initiates a payment for the appointment.
+     * Result returned after a successful payment initiation.
      *
-     * @return the paymentId returned by the payment service, or null if the call failed
-     * @throws RuntimeException if the payment service rejects the request (non-2xx)
+     * @param paymentId   internal payment identifier, stored on the Appointment entity
+     * @param checkoutUrl Stripe-hosted checkout page the patient should be redirected to
      */
-    public String initiatePayment(String appointmentId, BigDecimal amount, String patientId) {
+    public record PaymentInitiation(String paymentId, String checkoutUrl) {}
+
+    /**
+     * Creates a Stripe Checkout Session for the given appointment.
+     *
+     * @return {@link PaymentInitiation} containing the paymentId and the Stripe checkoutUrl
+     * @throws RuntimeException if the payment service is unreachable or returns a non-2xx
+     */
+    public PaymentInitiation initiatePayment(String appointmentId, BigDecimal amount,
+                                             String patientId, String doctorId) {
         String url = paymentServiceUrl + "/api/payments/initiate";
         Map<String, Object> body = Map.of(
                 "appointmentId", appointmentId,
-                "amount", amount,
-                "patientId", patientId,
-                "currency", "LKR"
+                "amount",        amount,
+                "patientId",     patientId,
+                "doctorId",      doctorId,
+                "currency",      "LKR"
         );
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, body, Map.class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Object paymentId = response.getBody().get("paymentId");
-                return paymentId != null ? paymentId.toString() : null;
+                Map<?, ?> responseBody = response.getBody();
+                // payment-service wraps in { success, data } — unwrap if needed
+                Object data = responseBody.containsKey("data") ? responseBody.get("data") : responseBody;
+                Map<?, ?> paymentData = data instanceof Map ? (Map<?, ?>) data : responseBody;
+                String paymentId   = paymentData.get("paymentId")   != null ? paymentData.get("paymentId").toString()   : null;
+                String checkoutUrl = paymentData.get("checkoutUrl") != null ? paymentData.get("checkoutUrl").toString() : null;
+                return new PaymentInitiation(paymentId, checkoutUrl);
             }
-            throw new RuntimeException("Payment service returned non-success status: " + response.getStatusCode());
+            throw new RuntimeException("Payment service returned non-success: " + response.getStatusCode());
         } catch (Exception e) {
-            // Catch all exceptions (RestClientException, HttpMessageConversionException,
-            // IllegalArgumentException for malformed URLs, etc.) so that payment failures
-            // never propagate as 500 — the appointment stays in PENDING status instead.
             log.warn("Payment service unavailable for appointment {}: {} — appointment will remain PENDING",
                     appointmentId, e.getMessage());
             throw new RuntimeException("Payment service unavailable", e);

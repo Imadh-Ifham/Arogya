@@ -35,7 +35,8 @@ public class Appointment {
     @Column(nullable = false)
     private AppointmentType appointmentType = AppointmentType.PHYSICAL;
 
-    private String paymentId;       // filled after payment confirmed
+    private String paymentId;       // filled after payment initiated
+    private String checkoutUrl;     // Stripe checkout URL returned by payment-service
     private String meetingUrl;      // filled after telemedicine session created
 
     private String cancellationReason;

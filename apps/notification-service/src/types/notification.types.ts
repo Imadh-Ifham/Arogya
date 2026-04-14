@@ -7,11 +7,14 @@ export type NotificationChannel = "EMAIL" | "SMS";
 // (or channels) to use.
 
 export type NotificationEventType =
-  | "APPOINTMENT_CONFIRMATION"   // Appointment booked — Email
-  | "APPOINTMENT_REMINDER"       // 24h before appointment — Email
-  | "APPOINTMENT_CANCELLATION"   // Appointment cancelled — Email
-  | "PAYMENT_RECEIPT"            // Payment successful — Email
-  | "PRESCRIPTION_DELIVERY"      // Prescription issued — Email
+  | "APPOINTMENT_CONFIRMATION"   // Patient: payment succeeded, booking confirmed — Email
+  | "APPOINTMENT_REMINDER"       // Patient: 24h before appointment — Email
+  | "APPOINTMENT_CANCELLATION"   // Patient: appointment cancelled — Email
+  | "APPOINTMENT_ACCEPTED"       // Patient: doctor accepted their appointment — Email
+  | "APPOINTMENT_REJECTED"       // Patient: doctor rejected their appointment — Email
+  | "NEW_APPOINTMENT_REQUEST"    // Doctor: new paid appointment awaiting review — Email
+  | "PAYMENT_RECEIPT"            // Patient: payment receipt — Email
+  | "PRESCRIPTION_DELIVERY"      // Patient: prescription issued — Email
   | "CUSTOM";                    // Ad-hoc email, body passed inline
 
 // ─── Status of a single dispatch attempt ─────────────────────────────────────
@@ -21,9 +24,10 @@ export type NotificationStatus = "SENT" | "FAILED" | "PENDING";
 // ─── DTOs received from other services ───────────────────────────────────────
 
 export interface SendNotificationDto {
-  // Who to notify — either provide contact directly or a patientId to resolve
-  patientId?: string;
-  recipientEmail?: string;
+  // Who to notify — provide contact directly or a resolvable ID
+  patientId?: string;       // notification-service resolves email from patient-service
+  doctorId?: string;        // notification-service resolves email from doctor-service
+  recipientEmail?: string;  // direct override — skips contact resolution
   recipientName?: string;
 
   eventType: NotificationEventType;

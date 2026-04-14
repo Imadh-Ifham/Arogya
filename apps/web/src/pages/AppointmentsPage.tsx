@@ -6,11 +6,28 @@ import Layout from "../components/Layout";
 import type { AppointmentStatus } from "../modules/appointment/api/rest";
 
 const STATUS_STYLES: Record<AppointmentStatus, string> = {
-  PENDING: "bg-amber-light text-amber border-border",
-  CONFIRMED: "bg-teal-light text-teal border-border",
-  CANCELLED: "bg-red-50 text-red-700 border-red-200",
-  COMPLETED: "bg-sage-light text-green-700 border-border",
-  NO_SHOW: "bg-muted text-muted-foreground border-border",
+  PENDING:           "bg-amber-light  text-amber       border-border",
+  AWAITING_PAYMENT:  "bg-orange-50    text-orange-700  border-orange-200",
+  PAYMENT_COMPLETED: "bg-teal-light   text-teal        border-border",
+  ACCEPTED:          "bg-green-50     text-green-700   border-green-200",
+  REJECTED:          "bg-red-50       text-red-700     border-red-200",
+  CONFIRMED:         "bg-teal-light   text-teal        border-border",
+  CANCELLED:         "bg-red-50       text-red-700     border-red-200",
+  COMPLETED:         "bg-sage-light   text-green-700   border-border",
+  NO_SHOW:           "bg-muted        text-muted-foreground border-border",
+};
+
+// Patient-friendly display labels
+const STATUS_LABELS: Record<AppointmentStatus, string> = {
+  PENDING:           "Pending",
+  AWAITING_PAYMENT:  "Awaiting Payment",
+  PAYMENT_COMPLETED: "Confirmed",
+  ACCEPTED:          "Accepted",
+  REJECTED:          "Rejected",
+  CONFIRMED:         "Confirmed",
+  CANCELLED:         "Cancelled",
+  COMPLETED:         "Completed",
+  NO_SHOW:           "No Show",
 };
 
 function formatDate(iso: string) {
@@ -74,11 +91,24 @@ export default function AppointmentsPage() {
               <span
                 className={`text-xs font-medium border rounded-full px-2.5 py-1 whitespace-nowrap ${STATUS_STYLES[apt.status]}`}
               >
-                {apt.status}
+                {STATUS_LABELS[apt.status]}
               </span>
             </div>
 
-            {apt.appointmentType === "ONLINE" && apt.status === "CONFIRMED" && (
+            {/* Payment prompt — shown if patient hasn't completed payment yet */}
+            {apt.status === "AWAITING_PAYMENT" && apt.checkoutUrl && (
+              <a
+                href={apt.checkoutUrl}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-3 inline-block text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors"
+              >
+                Complete Payment →
+              </a>
+            )}
+
+            {/* Video consultation link for confirmed online appointments */}
+            {apt.appointmentType === "ONLINE" &&
+              (apt.status === "ACCEPTED" || apt.status === "CONFIRMED") && (
               <Link
                 to={`/appointments/${apt.id}/consultation`}
                 onClick={(e) => e.stopPropagation()}

@@ -19,6 +19,12 @@ export const env = {
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
   },
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+  // URL of appointment-service — used to callback after Stripe webhook events.
+  // In Docker: http://appointment-service:8084
+  // In dev:    http://localhost:8084
+  appointmentServiceUrl:
+    process.env.APPOINTMENT_SERVICE_URL || "http://localhost:8084",
+
   kafka: {
     broker: process.env.KAFKA_BROKER || "",
     topicPaymentCompleted:

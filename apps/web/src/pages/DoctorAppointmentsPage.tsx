@@ -10,19 +10,27 @@ import { CheckCircle2, XCircle, Clock, User } from "lucide-react";
 import type { AppointmentStatus } from "../modules/appointment/api/rest";
 
 const STATUS_STYLES: Record<AppointmentStatus, string> = {
-  PENDING:   "bg-amber-50   text-amber-700  border-amber-200",
-  CONFIRMED: "bg-teal-50    text-teal-700   border-teal-200",
-  CANCELLED: "bg-red-50     text-red-700    border-red-200",
-  COMPLETED: "bg-green-50   text-green-700  border-green-200",
-  NO_SHOW:   "bg-gray-100   text-gray-600   border-gray-200",
+  PENDING:           "bg-amber-50   text-amber-700  border-amber-200",
+  AWAITING_PAYMENT:  "bg-orange-50  text-orange-700 border-orange-200",
+  PAYMENT_COMPLETED: "bg-blue-50    text-blue-700   border-blue-200",
+  ACCEPTED:          "bg-teal-50    text-teal-700   border-teal-200",
+  REJECTED:          "bg-red-50     text-red-700    border-red-200",
+  CONFIRMED:         "bg-teal-50    text-teal-700   border-teal-200",
+  CANCELLED:         "bg-red-50     text-red-700    border-red-200",
+  COMPLETED:         "bg-green-50   text-green-700  border-green-200",
+  NO_SHOW:           "bg-gray-100   text-gray-600   border-gray-200",
 };
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
-  PENDING:   "Pending",
-  CONFIRMED: "Confirmed",
-  CANCELLED: "Cancelled",
-  COMPLETED: "Completed",
-  NO_SHOW:   "No Show",
+  PENDING:           "Pending",
+  AWAITING_PAYMENT:  "Awaiting Payment",
+  PAYMENT_COMPLETED: "Payment Received",
+  ACCEPTED:          "Accepted",
+  REJECTED:          "Rejected",
+  CONFIRMED:         "Confirmed",
+  CANCELLED:         "Cancelled",
+  COMPLETED:         "Completed",
+  NO_SHOW:           "No Show",
 };
 
 function formatDateTime(iso: string) {
@@ -38,8 +46,13 @@ export default function DoctorAppointmentsPage() {
     dispatch(fetchDoctorAppointmentsThunk());
   }, [dispatch]);
 
-  const pending    = doctorAppointments.filter((a) => a.status === "PENDING");
-  const nonPending = doctorAppointments.filter((a) => a.status !== "PENDING");
+  // Doctor acts on appointments where payment is confirmed but they haven't reviewed yet
+  const awaitingReview = doctorAppointments.filter(
+    (a) => a.status === "PAYMENT_COMPLETED" || a.status === "PENDING",
+  );
+  const otherAppointments = doctorAppointments.filter(
+    (a) => a.status !== "PAYMENT_COMPLETED" && a.status !== "PENDING",
+  );
 
   return (
     <Layout>
@@ -61,20 +74,23 @@ export default function DoctorAppointmentsPage() {
           </div>
         )}
 
-        {/* ── Pending requests (action required) ── */}
-        {pending.length > 0 && (
+        {/* ── Awaiting review (action required) ── */}
+        {awaitingReview.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              Awaiting Your Response ({pending.length})
+              Awaiting Your Response ({awaitingReview.length})
             </h2>
             <div className="space-y-3">
-              {pending.map((apt) => {
+              {awaitingReview.map((apt) => {
                 const isActing = actionLoading[apt.id] === "pending";
+                const isPaid = apt.status === "PAYMENT_COMPLETED";
                 return (
                   <div
                     key={apt.id}
-                    className="bg-card border border-amber-200 rounded-xl px-5 py-4 space-y-3"
+                    className={`bg-card rounded-xl px-5 py-4 space-y-3 border ${
+                      isPaid ? "border-blue-200" : "border-amber-200"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-1">
@@ -91,8 +107,10 @@ export default function DoctorAppointmentsPage() {
                           {apt.appointmentType.toLowerCase()} consultation
                         </p>
                       </div>
-                      <span className="text-xs font-medium border rounded-full px-2.5 py-1 whitespace-nowrap bg-amber-50 text-amber-700 border-amber-200">
-                        Pending
+                      <span
+                        className={`text-xs font-medium border rounded-full px-2.5 py-1 whitespace-nowrap ${STATUS_STYLES[apt.status]}`}
+                      >
+                        {STATUS_LABELS[apt.status]}
                       </span>
                     </div>
 
@@ -103,7 +121,7 @@ export default function DoctorAppointmentsPage() {
                         className="flex items-center gap-1.5 text-xs bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        {isActing ? "Processing…" : "Approve"}
+                        {isActing ? "Processing…" : "Accept"}
                       </button>
                       <button
                         onClick={() => dispatch(rejectAppointmentThunk(apt.id))}
@@ -122,13 +140,13 @@ export default function DoctorAppointmentsPage() {
         )}
 
         {/* ── All other appointments ── */}
-        {nonPending.length > 0 && (
+        {otherAppointments.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               Past & Upcoming
             </h2>
             <div className="space-y-3">
-              {nonPending.map((apt) => (
+              {otherAppointments.map((apt) => (
                 <div
                   key={apt.id}
                   className="bg-card border border-border rounded-xl px-5 py-4"

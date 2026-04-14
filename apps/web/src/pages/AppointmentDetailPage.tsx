@@ -4,13 +4,37 @@ import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { cancelAppointmentThunk, rescheduleAppointmentThunk } from "../store/appointment/appointment.thunk";
 import { fetchSlotsThunk } from "../store/appointment/appointment.thunk";
 import { fetchAppointment } from "../modules/appointment/api/rest";
-import type { Appointment } from "../modules/appointment/api/rest";
+import type { Appointment, AppointmentStatus } from "../modules/appointment/api/rest";
 import { getDoctorLabel, getDoctorName } from "../data/mockDoctors";
 import Layout from "../components/Layout";
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 }
+
+const STATUS_STYLES: Record<AppointmentStatus, string> = {
+  PENDING:           "bg-amber-50    text-amber-700  border-amber-200",
+  AWAITING_PAYMENT:  "bg-orange-50   text-orange-700 border-orange-200",
+  PAYMENT_COMPLETED: "bg-teal-50     text-teal-700   border-teal-200",
+  ACCEPTED:          "bg-green-50    text-green-700  border-green-200",
+  REJECTED:          "bg-red-50      text-red-700    border-red-200",
+  CONFIRMED:         "bg-teal-50     text-teal-700   border-teal-200",
+  CANCELLED:         "bg-red-50      text-red-700    border-red-200",
+  COMPLETED:         "bg-green-50    text-green-700  border-green-200",
+  NO_SHOW:           "bg-gray-100    text-gray-600   border-gray-200",
+};
+
+const STATUS_LABELS: Record<AppointmentStatus, string> = {
+  PENDING:           "Pending",
+  AWAITING_PAYMENT:  "Awaiting Payment",
+  PAYMENT_COMPLETED: "Confirmed",
+  ACCEPTED:          "Accepted",
+  REJECTED:          "Rejected",
+  CONFIRMED:         "Confirmed",
+  CANCELLED:         "Cancelled",
+  COMPLETED:         "Completed",
+  NO_SHOW:           "No Show",
+};
 
 export default function AppointmentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -58,7 +82,19 @@ export default function AppointmentDetailPage() {
     }
   };
 
-  const canModify = appointment?.status === "PENDING" || appointment?.status === "CONFIRMED";
+  // Patient can cancel while payment is pending or after payment (until doctor acts)
+  const canCancel =
+    appointment?.status === "PENDING" ||
+    appointment?.status === "AWAITING_PAYMENT" ||
+    appointment?.status === "PAYMENT_COMPLETED" ||
+    appointment?.status === "ACCEPTED" ||
+    appointment?.status === "CONFIRMED";
+
+  // Reschedule only makes sense before payment is initiated
+  const canReschedule =
+    appointment?.status === "PENDING" ||
+    appointment?.status === "CONFIRMED";
+
   const availableSlots = slots.filter((s) => s.status === "AVAILABLE");
 
   return (
@@ -83,8 +119,10 @@ export default function AppointmentDetailPage() {
           <div className="bg-card border border-border rounded-xl p-5 space-y-3">
             <div className="flex justify-between items-start">
               <p className="font-semibold text-foreground">{getDoctorName(appointment.doctorId)}</p>
-              <span className="text-xs font-medium bg-muted text-muted-foreground px-2.5 py-1 rounded-full border border-border">
-                {appointment.status}
+              <span
+                className={`text-xs font-medium px-2.5 py-1 rounded-full border ${STATUS_STYLES[appointment.status]}`}
+              >
+                {STATUS_LABELS[appointment.status]}
               </span>
             </div>
             <p className="text-sm text-muted-foreground capitalize">
@@ -97,7 +135,8 @@ export default function AppointmentDetailPage() {
                 Reason: {appointment.cancellationReason}
               </p>
             )}
-            {appointment.appointmentType === "ONLINE" && appointment.status === "CONFIRMED" && (
+            {appointment.appointmentType === "ONLINE" &&
+              (appointment.status === "ACCEPTED" || appointment.status === "CONFIRMED") && (
               <Link
                 to={`/appointments/${appointment.id}/consultation`}
                 className="inline-block text-sm text-teal hover:underline"
@@ -107,26 +146,62 @@ export default function AppointmentDetailPage() {
             )}
           </div>
 
+          {/* Payment banner — shown while payment is still required */}
+          {appointment.status === "AWAITING_PAYMENT" && appointment.checkoutUrl && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-medium text-orange-800">Payment required to confirm your booking</p>
+              <p className="text-xs text-orange-600">
+                Your slot is reserved. Complete the payment within the session window to secure your appointment.
+              </p>
+              <a
+                href={appointment.checkoutUrl}
+                className="inline-block mt-1 text-sm bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors"
+              >
+                Complete Payment →
+              </a>
+            </div>
+          )}
+
+          {/* Doctor rejected — inform patient */}
+          {appointment.status === "REJECTED" && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+              <p className="text-sm font-medium text-red-700">This appointment was not accepted by the doctor.</p>
+              <p className="text-xs text-red-500 mt-1">
+                You may book a new appointment with another available slot.
+              </p>
+              <Link
+                to="/slots"
+                className="inline-block mt-2 text-xs text-primary hover:underline"
+              >
+                Browse available slots →
+              </Link>
+            </div>
+          )}
+
           {actionError && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
               {actionError}
             </div>
           )}
 
-          {canModify && (
+          {(canCancel || canReschedule) && (
             <div className="flex gap-3">
-              <button
-                onClick={() => { setShowReschedule(false); setShowCancel((v) => !v); }}
-                className="flex-1 border border-red-300 text-red-600 text-sm py-2 rounded-lg hover:bg-red-50 transition-colors"
-              >
-                Cancel Appointment
-              </button>
-              <button
-                onClick={() => { setShowCancel(false); setShowReschedule((v) => !v); }}
-                className="flex-1 border border-border text-foreground text-sm py-2 rounded-lg hover:bg-secondary transition-colors"
-              >
-                Reschedule
-              </button>
+              {canCancel && (
+                <button
+                  onClick={() => { setShowReschedule(false); setShowCancel((v) => !v); }}
+                  className="flex-1 border border-red-300 text-red-600 text-sm py-2 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  Cancel Appointment
+                </button>
+              )}
+              {canReschedule && (
+                <button
+                  onClick={() => { setShowCancel(false); setShowReschedule((v) => !v); }}
+                  className="flex-1 border border-border text-foreground text-sm py-2 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  Reschedule
+                </button>
+              )}
             </div>
           )}
 

@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import Stripe from "stripe";
+import axios from "axios";
 import { stripe } from "../config/stripe";
 import { env } from "../config/env";
 import { Payment } from "../models/payment.model";
@@ -9,6 +10,52 @@ import {
   InitiatePaymentResponse,
 } from "../types/payment.types";
 import { generateReceiptNumber } from "../utils/receipt";
+
+// ─── Appointment-service callback helpers ────────────────────────────────────
+
+/**
+ * Notifies appointment-service that payment succeeded.
+ * Called inside the Stripe webhook handler after the payment is marked SUCCESS.
+ * Fire-and-forget — failures are logged but never re-thrown (Stripe must get 200).
+ */
+const notifyAppointmentConfirmed = async (
+  appointmentId: string,
+  paymentId: string,
+): Promise<void> => {
+  const url = `${env.appointmentServiceUrl}/api/appointments/${appointmentId}/payment-confirmed`;
+  try {
+    await axios.post(url, { paymentId }, { timeout: 5000 });
+    console.log(
+      `[Payment] Notified appointment-service: appointment ${appointmentId} confirmed`,
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[Payment] Failed to notify appointment-service for appointment ${appointmentId}: ${message}`,
+    );
+  }
+};
+
+/**
+ * Notifies appointment-service that payment failed or expired.
+ * Appointment is rolled back to PENDING so the patient can retry.
+ */
+const notifyAppointmentPaymentFailed = async (
+  appointmentId: string,
+): Promise<void> => {
+  const url = `${env.appointmentServiceUrl}/api/appointments/${appointmentId}/payment-failed`;
+  try {
+    await axios.post(url, {}, { timeout: 5000 });
+    console.log(
+      `[Payment] Notified appointment-service: payment failed for appointment ${appointmentId}`,
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[Payment] Failed to notify appointment-service (payment-failed) for ${appointmentId}: ${message}`,
+    );
+  }
+};
 
 /**
  * Creates a Stripe Checkout Session and saves a PENDING payment record.
@@ -219,7 +266,11 @@ const handleCheckoutCompleted = async (
     `[Payment] SUCCESS: ${payment.paymentId} | Receipt: ${receipt.receiptNumber}`,
   );
 
-  // TODO: Phase 6 — Kafka emit payment.completed
+  // Notify appointment-service so it can transition status to PAYMENT_COMPLETED
+  // and send confirmation notifications to patient + doctor.
+  if (payment.appointmentId) {
+    await notifyAppointmentConfirmed(payment.appointmentId, payment.paymentId);
+  }
 };
 
 /**
@@ -256,6 +307,11 @@ const handleCheckoutFailed = async (
   });
 
   console.log(`[Payment] FAILED: ${payment.paymentId} (${reason})`);
+
+  // Notify appointment-service to roll back to PENDING so patient can retry
+  if (payment.appointmentId) {
+    await notifyAppointmentPaymentFailed(payment.appointmentId);
+  }
 };
 
 // =============================================================================
@@ -306,6 +362,11 @@ export const devSimulateSuccess = async (
   console.log(
     `[Payment] DEV SIMULATED SUCCESS: ${payment.paymentId} | Receipt: ${receipt.receiptNumber}`,
   );
+
+  // Notify appointment-service (same as real webhook flow)
+  if (payment.appointmentId) {
+    await notifyAppointmentConfirmed(payment.appointmentId, payment.paymentId);
+  }
 
   return {
     paymentId: payment.paymentId,

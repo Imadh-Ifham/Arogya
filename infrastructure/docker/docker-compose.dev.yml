@@ -21,7 +21,15 @@
 #   Telemedicine Svc  http://localhost:8086
 #   AI Symptom Chkr   http://localhost:8089
 #   Payment Service   http://localhost:8087
-#   Notification Stub http://localhost:3002
+#   Notification Svc  http://localhost:3002
+#
+# Payment flow startup order:
+#   postgres, mongodb → auth/patient/doctor → notification → payment → appointment → gateway → web
+#
+# Stripe testing (local):
+#   1. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET in a .env next to this file
+#   2. Run: stripe listen --forward-to localhost:8087/api/payments/webhook
+#   3. Use test card 4242 4242 4242 4242 on the Stripe Checkout page
 # =============================================================================
 
 # ---------------------------------------------------------------------------
@@ -134,6 +142,8 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       FRONTEND_URL: http://localhost:5173
+      # Callback URL — payment-service POSTs here after Stripe webhook fires
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8084
     ports:
       - "8087:8087"
     networks:
@@ -198,12 +208,15 @@ services:
     depends_on:
       notification-mongodb:
         condition: service_healthy
+      doctor-service:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3002
       MONGODB_URI: mongodb://arogya:arogya_secret@notification-mongodb:27017/arogya_notifications?authSource=admin
-      # Internal service URL — used to resolve patient contact details
+      # Internal service URLs — used to resolve patient/doctor contact details
       PATIENT_SERVICE_URL: http://patient-service:8082
+      DOCTOR_SERVICE_URL: http://doctor-service:8083
       # Twilio — leave blank to use the console stub (safe for dev/CI)
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
@@ -363,6 +376,8 @@ services:
       postgres:
         condition: service_healthy
       doctor-service:
+        condition: service_healthy
+      payment-service:
         condition: service_healthy
       # Notification service must be healthy before appointment-service starts
       # so that booking confirmations can be dispatched immediately on first boot.

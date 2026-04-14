@@ -1,6 +1,7 @@
 import { NotificationLog, INotificationLog } from "../models/notificationLog.model";
 import { findActiveTemplateForEvent } from "./template.service";
 import { resolvePatientContact } from "./patient.client";
+import { resolveDoctorContact } from "./doctor.client";
 import { sendEmail } from "../providers/email.provider";
 import { interpolate } from "../utils/templateInterpolator";
 import { SendNotificationDto } from "../types/notification.types";
@@ -10,15 +11,20 @@ import { NotificationError } from "./template.service";
 // This is the single function every other service calls.
 // It resolves contacts, picks a template, renders the body, dispatches the
 // message, and writes an audit log entry — all atomically from the caller's POV.
+//
+// Recipient resolution priority (first non-null wins):
+//   1. recipientEmail passed directly in the DTO
+//   2. patientId  → patient-service lookup
+//   3. doctorId   → doctor-service  lookup
 
 export const sendNotification = async (
   dto: SendNotificationDto,
 ): Promise<INotificationLog[]> => {
-  // 1. Resolve recipient email
+  // 1. Resolve recipient email + name
   let email = dto.recipientEmail;
   let recipientName = dto.recipientName;
 
-  if (dto.patientId && !email) {
+  if (!email && dto.patientId) {
     const contact = await resolvePatientContact(dto.patientId);
     if (contact) {
       email = email ?? contact.email;
@@ -28,9 +34,17 @@ export const sendNotification = async (
     }
   }
 
+  if (!email && dto.doctorId) {
+    const contact = await resolveDoctorContact(dto.doctorId);
+    if (contact) {
+      email = email ?? contact.email;
+      recipientName = recipientName ?? contact.name;
+    }
+  }
+
   if (!email) {
     throw new NotificationError(
-      "No recipient email available — provide recipientEmail or a resolvable patientId",
+      "No recipient email available — provide recipientEmail, a resolvable patientId, or a resolvable doctorId",
       422,
     );
   }
@@ -72,7 +86,8 @@ const dispatchEmail = async (
 
     body = interpolate(template.body, vars);
     subject = template.subject ? interpolate(template.subject, vars) : undefined;
-    templateId = template._id.toString();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    templateId = (template as any)._id?.toString();
     templateSlug = template.slug;
   }
 

@@ -32,9 +32,11 @@ export const env = {
     enabled: !!(process.env.ETHEREAL_USER && process.env.ETHEREAL_PASS),
   },
 
-  // Internal service URLs — used when resolving patient contact details
+  // Internal service URLs — used when resolving contact details
   patientServiceUrl:
     process.env.PATIENT_SERVICE_URL || "http://localhost:8082",
+  doctorServiceUrl:
+    process.env.DOCTOR_SERVICE_URL || "http://localhost:8083",
 
   // Max attempts before giving up on a third-party API call
   retryAttempts: parseInt(process.env.RETRY_ATTEMPTS || "3", 10),

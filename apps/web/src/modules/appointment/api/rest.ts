@@ -1,7 +1,16 @@
 import api from "../../../lib/api";
 
 export type SlotStatus = "AVAILABLE" | "BOOKED";
-export type AppointmentStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
+export type AppointmentStatus =
+  | "PENDING"
+  | "AWAITING_PAYMENT"
+  | "PAYMENT_COMPLETED"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "NO_SHOW";
 export type AppointmentType = "PHYSICAL" | "ONLINE";
 
 export interface Slot {
@@ -23,6 +32,7 @@ export interface Appointment {
   status: AppointmentStatus;
   appointmentType: AppointmentType;
   paymentId: string | null;
+  checkoutUrl: string | null;
   meetingUrl: string | null;
   cancellationReason: string | null;
   createdAt: string;

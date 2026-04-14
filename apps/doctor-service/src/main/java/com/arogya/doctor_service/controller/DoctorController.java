@@ -95,6 +95,18 @@ public class DoctorController {
         return ResponseEntity.ok(DoctorSummaryDto.from(doctorService.getDoctorProfile(id)));
     }
 
+    /**
+     * Internal service-to-service endpoint: resolve a doctor by their auth user ID.
+     * Used by notification-service to look up the doctor's email for outbound notifications.
+     * NOTE: Must be declared before /{id} so Spring maps it correctly.
+     */
+    @GetMapping("/by-auth/{authUserId}")
+    public ResponseEntity<?> getByAuthUserId(@PathVariable String authUserId) {
+        return doctorService.getDoctorByAuthUserId(authUserId)
+                .map(doctor -> ResponseEntity.<Object>ok(DoctorSummaryDto.from(doctor)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/{id}/reviews")
     public Review addReview(@PathVariable Long id, @RequestBody Review review) {
         return doctorService.addReview(id, review);
