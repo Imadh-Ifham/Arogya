@@ -25,19 +25,21 @@ public class AppConfig {
     private String notificationServiceUrl;
 
     /**
-     * RestTemplate configured with the application's ObjectMapper so that
-     * Java time types (LocalTime, LocalDate, …) received from other services
-     * are deserialised correctly as ISO strings rather than numeric arrays.
-     * Spring Boot auto-configures the ObjectMapper with JavaTimeModule and
-     * WRITE_DATES_AS_TIMESTAMPS=false.
+     * RestTemplate that keeps all default message converters but replaces the
+     * Jackson one with a converter that shares the app-configured ObjectMapper
+     * (which has JavaTimeModule and WRITE_DATES_AS_TIMESTAMPS=false).
+     *
+     * Replacing the whole converter list (as done previously) removed
+     * ByteArrayHttpMessageConverter, StringHttpMessageConverter, etc., which
+     * caused HttpMessageConversionException when a downstream service returned
+     * a non-JSON body (e.g. an HTML error page) — those exceptions are NOT
+     * RestClientException subclasses and therefore escaped the catch clauses.
      */
     @Bean
     public RestTemplate restTemplate(ObjectMapper objectMapper) {
         RestTemplate rt = new RestTemplate();
-        // Replace the default Jackson converter with one that shares the app ObjectMapper
-        rt.setMessageConverters(List.of(
-                new MappingJackson2HttpMessageConverter(objectMapper)
-        ));
+        rt.getMessageConverters().removeIf(c -> c instanceof MappingJackson2HttpMessageConverter);
+        rt.getMessageConverters().add(new MappingJackson2HttpMessageConverter(objectMapper));
         return rt;
     }
 

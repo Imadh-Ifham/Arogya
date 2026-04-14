@@ -2,7 +2,6 @@ package com.arogya.appointment_service.service;
 
 import com.arogya.appointment_service.client.NotificationServiceClient;
 import com.arogya.appointment_service.client.PaymentServiceClient;
-import com.arogya.appointment_service.client.TelemedicineServiceClient;
 import com.arogya.appointment_service.dto.request.BookAppointmentRequest;
 import com.arogya.appointment_service.dto.request.CancelAppointmentRequest;
 import com.arogya.appointment_service.dto.request.RescheduleAppointmentRequest;
@@ -31,15 +30,22 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final AppointmentSlotRepository slotRepository;
     private final AppointmentSlotService slotService;
-    private final TelemedicineServiceClient telemedicineClient;
     private final PaymentServiceClient paymentClient;
     private final NotificationServiceClient notificationClient;
 
     /**
      * APT-02: Book an appointment.
+     *
+     * PHYSICAL appointments are fully handled here: slot reservation → appointment
+     * record → payment (optional) → notification (fire-and-forget).
+     *
+     * ONLINE appointments are also stored here (slot + appointment record) but the
+     * telemedicine session provisioning is intentionally deferred — it will be
+     * handled by the telemedicine-service in a future iteration.  The meeting URL
+     * stays null until that service sets it.
+     *
      * APT-07: Double-booking is prevented by the @Version field on AppointmentSlot.
-     *         If two requests try to mark the same slot BOOKED simultaneously, the
-     *         second transaction throws OptimisticLockingFailureException → 409.
+     *         Simultaneous bookings → OptimisticLockingFailureException → 409.
      */
     @Transactional
     public AppointmentResponse bookAppointment(String patientId, BookAppointmentRequest request) {
@@ -59,35 +65,26 @@ public class AppointmentService {
 
         Appointment saved = appointmentRepository.save(appointment);
 
-        // For ONLINE appointments, try to create a telemedicine session.
-        // If the telemedicine-service is unavailable, the booking still succeeds
-        // with meetingUrl = null; the URL can be provisioned later.
-        if (request.getAppointmentType() == AppointmentType.ONLINE) {
+        if (request.getAppointmentType() == AppointmentType.PHYSICAL) {
+            // ── PHYSICAL: initiate payment immediately ────────────────────────
+            // If the payment service is unavailable the appointment stays PENDING;
+            // payment can be retried or reconciled later.
             try {
-                String meetingUrl = telemedicineClient.createSession(
-                        saved.getId(), patientId, slot.getDoctorId());
-                saved.setMeetingUrl(meetingUrl);
+                String paymentId = paymentClient.initiatePayment(saved.getId(), slot.getFee(), patientId);
+                saved.setPaymentId(paymentId);
+                saved.setStatus(AppointmentStatus.CONFIRMED);
                 saved = appointmentRepository.save(saved);
             } catch (RuntimeException e) {
-                log.warn("Telemedicine service unavailable for appointment {} — meetingUrl will be null: {}",
+                log.warn("Payment service unavailable for appointment {} — status remains PENDING: {}",
                         saved.getId(), e.getMessage());
             }
         }
+        // ONLINE: payment and telemedicine session are deferred to the
+        // telemedicine-service (future implementation).  Appointment is saved
+        // in PENDING status; the telemedicine-service will update it once
+        // the session and payment are confirmed.
 
-        // Initiate payment. If the payment service is unavailable, the appointment is
-        // still created (paymentId = null, status = PENDING) so the patient isn't
-        // blocked. Payment can be retried or reconciled later.
-        try {
-            String paymentId = paymentClient.initiatePayment(saved.getId(), slot.getFee(), patientId);
-            saved.setPaymentId(paymentId);
-            saved.setStatus(AppointmentStatus.CONFIRMED);
-            saved = appointmentRepository.save(saved);
-        } catch (RuntimeException e) {
-            log.warn("Payment service unavailable for appointment {} — proceeding with PENDING status: {}",
-                    saved.getId(), e.getMessage());
-        }
-
-        // Fire-and-forget notification — must not fail the booking if notification service is down
+        // Fire-and-forget notification — errors are swallowed inside the client
         notificationClient.sendAppointmentConfirmed(
                 saved.getId(),
                 patientId,

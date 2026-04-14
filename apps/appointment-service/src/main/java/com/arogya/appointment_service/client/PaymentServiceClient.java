@@ -45,9 +45,13 @@ public class PaymentServiceClient {
                 return paymentId != null ? paymentId.toString() : null;
             }
             throw new RuntimeException("Payment service returned non-success status: " + response.getStatusCode());
-        } catch (RestClientException e) {
-            log.error("Payment service unreachable for appointment {}: {}", appointmentId, e.getMessage());
-            throw new RuntimeException("Payment service unavailable — booking rolled back", e);
+        } catch (Exception e) {
+            // Catch all exceptions (RestClientException, HttpMessageConversionException,
+            // IllegalArgumentException for malformed URLs, etc.) so that payment failures
+            // never propagate as 500 — the appointment stays in PENDING status instead.
+            log.warn("Payment service unavailable for appointment {}: {} — appointment will remain PENDING",
+                    appointmentId, e.getMessage());
+            throw new RuntimeException("Payment service unavailable", e);
         }
     }
 }

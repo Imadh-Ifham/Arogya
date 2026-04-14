@@ -1,6 +1,8 @@
 package com.arogya.doctor_service.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,11 +17,14 @@ public class AppConfig {
     @Value("${services.appointment.url}")
     private String appointmentServiceUrl;
 
-    /**
-     * Uses Spring Boot's auto-configured ObjectMapper (which includes JavaTimeModule
-     * and WRITE_DATES_AS_TIMESTAMPS=false) so that LocalTime/LocalDate fields in
-     * AvailabilityTemplate responses serialize as ISO strings, not arrays or POJOs.
-     */
+    @Bean
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return mapper;
+    }
+
     @Bean
     public RestTemplate restTemplate(ObjectMapper objectMapper) {
         RestTemplate rt = new RestTemplate();
