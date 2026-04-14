@@ -1,0 +1,30 @@
+{
+  "name": "notification-service",
+  "version": "1.0.0",
+  "description": "Sends SMS (Twilio) and email (SendGrid) notifications on behalf of Appointment, Payment, and Prescription services. Logs every dispatch for compliance.",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "nodemon --exec ts-node server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.4",
+    "axios": "^1.7.9",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
+    "express-validator": "^7.3.1",
+    "mongoose": "^9.3.3",
+    "twilio": "^5.4.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.5.0",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
+  }
+}

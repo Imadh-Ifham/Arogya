@@ -40,6 +40,8 @@ volumes:
     name: arogya-postgres-data
   mongodb-data:
     name: arogya-mongodb-data
+  notification-mongodb-data:
+    name: arogya-notification-mongodb-data
 
 # ---------------------------------------------------------------------------
 # Services
@@ -132,30 +134,84 @@ services:
   #     start_period: 10s
 
   # -------------------------------------------------------------------------
-  # Notification Stub — Port 3002
-  # Simulates Twilio/SendGrid. Logs notifications to console, never fails.
-  # POST /api/notifications/send → { notificationId, status: "SENT" }
+  # Notification MongoDB — dedicated store for notification logs & templates
+  # Kept separate from the shared mongodb instance so this service can be
+  # scaled or swapped without touching auth/telemedicine data.
   # -------------------------------------------------------------------------
-  # notification-service:
-  #   build:
-  #     context: ../../apps/notification-service
-  #     dockerfile: Dockerfile
-  #   image: arogya/notification-service:latest
-  #   container_name: arogya-notification-service
-  #   restart: unless-stopped
-  #   environment:
-  #     PORT: 3002
-  #     NODE_ENV: production
-  #   ports:
-  #     - "3002:3002"
-  #   networks:
-  #     - arogya-net
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -qO- http://localhost:3002/health || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 10s
+  notification-mongodb:
+    image: mongo:7.0
+    container_name: arogya-notification-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: arogya
+      MONGO_INITDB_ROOT_PASSWORD: arogya_secret
+      MONGO_INITDB_DATABASE: arogya_notifications
+    volumes:
+      - notification-mongodb-data:/data/db
+    # Not exposed to host — only reachable inside arogya-net
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # -------------------------------------------------------------------------
+  # Notification Service — Node.js/Express — Port 3002
+  # Sends SMS (Twilio) and email (SendGrid) on behalf of Appointment,
+  # Payment, and Prescription services. Logs every dispatch for compliance.
+  #
+  # Twilio/SendGrid credentials are optional — when absent the service stubs
+  # both providers and logs message bodies to stdout (safe for dev/CI).
+  #
+  # REST API:
+  #   POST /api/notifications/send        — dispatch a notification
+  #   GET  /api/notifications/logs        — audit log (paginated)
+  #   GET  /api/notifications/logs/:id    — single log entry
+  #   GET  /api/notifications/templates   — list templates
+  #   POST /api/notifications/templates   — create template
+  #   PUT  /api/notifications/templates/:id — update template
+  #   GET  /health                        — health check
+  # -------------------------------------------------------------------------
+  notification-service:
+    build:
+      context: ../../apps/notification-service
+      dockerfile: Dockerfile
+    image: arogya/notification-service:latest
+    container_name: arogya-notification-service
+    restart: unless-stopped
+    depends_on:
+      notification-mongodb:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      MONGODB_URI: mongodb://arogya:arogya_secret@notification-mongodb:27017/arogya_notifications?authSource=admin
+      # Internal service URL — used to resolve patient contact details
+      PATIENT_SERVICE_URL: http://patient-service:8082
+      # Twilio — leave blank to use the console stub (safe for dev/CI)
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+      # SendGrid — leave blank to use the console stub (safe for dev/CI)
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@arogya.health}
+      SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-Arogya Health}
+      # Retry config
+      RETRY_ATTEMPTS: 3
+      RETRY_DELAY_MS: 1000
+    ports:
+      - "3002:3002"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3002/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   # ===========================================================================
   # CORE APPLICATION SERVICES
@@ -282,6 +338,10 @@ services:
       postgres:
         condition: service_healthy
       doctor-service:
+        condition: service_healthy
+      # Notification service must be healthy before appointment-service starts
+      # so that booking confirmations can be dispatched immediately on first boot.
+      notification-service:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
