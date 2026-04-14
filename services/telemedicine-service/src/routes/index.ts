@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { chatRouter } from "../modules/chat/chat.routes.js";
 import { consultationRouter } from "../modules/consultation/consultation.routes.js";
 import { roomRouter } from "../modules/rooms/room.routes.js";
 import { env } from "../config/env.js";
@@ -17,3 +18,4 @@ apiRouter.get("/health", (_req, res) => {
 
 apiRouter.use("/rooms", roomRouter);
 apiRouter.use("/consultations", consultationRouter);
+apiRouter.use("/chats", chatRouter);
