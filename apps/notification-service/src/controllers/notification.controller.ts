@@ -61,7 +61,7 @@ export const listLogsController = async (
 // GET /api/notifications/logs/:id
 
 export const getLogController = async (
-  req: Request,
+  req: Request<{ id: string }>,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {

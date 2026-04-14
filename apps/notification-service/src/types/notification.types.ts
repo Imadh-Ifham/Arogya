@@ -1,6 +1,6 @@
 // ─── Channel ─────────────────────────────────────────────────────────────────
 
-export type NotificationChannel = "EMAIL";
+export type NotificationChannel = "EMAIL" | "SMS";
 
 // ─── Event types ─────────────────────────────────────────────────────────────
 // Each event type maps to a specific template slug and determines which channel
@@ -42,6 +42,12 @@ export interface SendEmailDto {
   subject: string;
   htmlBody: string;
   textBody?: string;
+  notificationLogId?: string;
+}
+
+export interface SendSmsDto {
+  to: string;
+  body: string;
   notificationLogId?: string;
 }
 

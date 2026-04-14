@@ -36,7 +36,7 @@ export const listTemplatesController = async (
 };
 
 export const getTemplateController = async (
-  req: Request,
+  req: Request<{ id: string }>,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
@@ -49,7 +49,7 @@ export const getTemplateController = async (
 };
 
 export const updateTemplateController = async (
-  req: Request,
+  req: Request<{ id: string }>,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
@@ -63,7 +63,7 @@ export const updateTemplateController = async (
 };
 
 export const deleteTemplateController = async (
-  req: Request,
+  req: Request<{ id: string }>,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {

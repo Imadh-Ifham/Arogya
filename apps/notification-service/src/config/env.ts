@@ -22,6 +22,16 @@ export const env = {
     enabled: !!process.env.SENDGRID_API_KEY,
   },
 
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || "",
+    authToken: process.env.TWILIO_AUTH_TOKEN || "",
+    fromNumber: process.env.TWILIO_FROM_NUMBER || "",
+    enabled:
+      !!process.env.TWILIO_ACCOUNT_SID &&
+      !!process.env.TWILIO_AUTH_TOKEN &&
+      !!process.env.TWILIO_FROM_NUMBER,
+  },
+
   // Internal service URLs — used when resolving patient contact details
   patientServiceUrl:
     process.env.PATIENT_SERVICE_URL || "http://localhost:8082",
