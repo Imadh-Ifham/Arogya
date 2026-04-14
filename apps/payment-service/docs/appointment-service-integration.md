@@ -6,12 +6,12 @@
 
 ## Summary of Changes
 
-| # | File | Type | Description |
-|---|------|------|-------------|
-| 1 | `application-dev.properties` | Config | Change payment URL port `3001` → `8087` |
-| 2 | `application-docker.properties` | Config | Change payment URL port `3001` → `8087` |
-| 3 | `PaymentServiceClient.java` | Code | Add `doctorId` parameter to `initiatePayment()` |
-| 4 | `AppointmentService.java` | Code | Move payment call from `bookAppointment()` to `acceptAppointment()` |
+| #   | File                            | Type   | Description                                                         |
+| --- | ------------------------------- | ------ | ------------------------------------------------------------------- |
+| 1   | `application-dev.properties`    | Config | Change payment URL port `3001` → `8087`                             |
+| 2   | `application-docker.properties` | Config | Change payment URL port `3001` → `8087`                             |
+| 3   | `PaymentServiceClient.java`     | Code   | Add `doctorId` parameter to `initiatePayment()`                     |
+| 4   | `AppointmentService.java`       | Code   | Move payment call from `bookAppointment()` to `acceptAppointment()` |
 
 ---
 
@@ -20,11 +20,13 @@
 **File**: `apps/appointment-service/src/main/resources/application-dev.properties`
 
 **Current**:
+
 ```properties
 services.payment.url=http://localhost:3001
 ```
 
 **Change to**:
+
 ```properties
 services.payment.url=http://localhost:8087
 ```
@@ -38,11 +40,13 @@ services.payment.url=http://localhost:8087
 **File**: `apps/appointment-service/src/main/resources/application-docker.properties`
 
 **Current**:
+
 ```properties
 services.payment.url=http://payment-service:3001
 ```
 
 **Change to**:
+
 ```properties
 services.payment.url=http://payment-service:8087
 ```
@@ -106,6 +110,7 @@ requestBody.put("currency", "LKR");
 ### Why
 
 The payment-service needs `doctorId` to:
+
 - Store it on the payment record so the doctor can see their earnings via `GET /api/payments/doctor/me`
 - Associate the payment with the correct doctor for the dashboard summary (totalReceived, etc.)
 
@@ -208,12 +213,12 @@ public AppointmentResponse acceptAppointment(UUID appointmentId, String doctorId
 
 ### Why this flow change matters
 
-| Aspect | Old (pay at booking) | New (pay after accept) |
-|--------|---------------------|----------------------|
-| **When patient pays** | Immediately on booking | After doctor confirms they'll see the patient |
-| **Refund risk** | High — doctor may reject after payment | Low — doctor already accepted |
-| **Patient experience** | Pays upfront, might get rejected | Books for free, pays only when confirmed |
-| **Doctor dashboard** | doctorId not sent | doctorId included, dashboard works |
+| Aspect                 | Old (pay at booking)                   | New (pay after accept)                        |
+| ---------------------- | -------------------------------------- | --------------------------------------------- |
+| **When patient pays**  | Immediately on booking                 | After doctor confirms they'll see the patient |
+| **Refund risk**        | High — doctor may reject after payment | Low — doctor already accepted                 |
+| **Patient experience** | Pays upfront, might get rejected       | Books for free, pays only when confirmed      |
+| **Doctor dashboard**   | doctorId not sent                      | doctorId included, dashboard works            |
 
 ---
 

@@ -14,15 +14,15 @@ The Payment Service handles all financial transactions within the Arogya platfor
 
 ## API Endpoints
 
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `POST` | `/api/payments/initiate` | Service-to-service | Create Stripe Checkout Session |
-| `POST` | `/api/payments/webhook` | Stripe signature | Handle Stripe webhook events |
-| `GET` | `/api/payments/me` | `requireUser` | Patient payment history (paginated) |
-| `GET` | `/api/payments/doctor/me` | `requireUser` + `requireRole(doctor,admin)` | Doctor dashboard with summary |
-| `GET` | `/api/payments/:id` | `requireUser` | Single payment / receipt |
-| `POST` | `/api/payments/dev/simulate-success/:paymentId` | Dev only | Simulate Stripe success |
-| `GET` | `/health` | None | Health check |
+| Method | Route                                           | Auth                                        | Description                         |
+| ------ | ----------------------------------------------- | ------------------------------------------- | ----------------------------------- |
+| `POST` | `/api/payments/initiate`                        | Service-to-service                          | Create Stripe Checkout Session      |
+| `POST` | `/api/payments/webhook`                         | Stripe signature                            | Handle Stripe webhook events        |
+| `GET`  | `/api/payments/me`                              | `requireUser`                               | Patient payment history (paginated) |
+| `GET`  | `/api/payments/doctor/me`                       | `requireUser` + `requireRole(doctor,admin)` | Doctor dashboard with summary       |
+| `GET`  | `/api/payments/:id`                             | `requireUser`                               | Single payment / receipt            |
+| `POST` | `/api/payments/dev/simulate-success/:paymentId` | Dev only                                    | Simulate Stripe success             |
+| `GET`  | `/health`                                       | None                                        | Health check                        |
 
 ---
 
@@ -61,14 +61,14 @@ This starts the Stripe CLI webhook listener and the dev server together.
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PORT` | No | Server port (default: `8087`) |
-| `MONGODB_URI` | Yes | MongoDB connection string |
-| `STRIPE_SECRET_KEY` | Yes | Stripe secret key (`sk_test_...` or `sk_live_...`) |
-| `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook signing secret (`whsec_...`) |
-| `FRONTEND_URL` | No | Redirect URL after checkout (default: `http://localhost:5173`) |
-| `KAFKA_BROKER` | No | Kafka broker address (Kafka integration commented out) |
+| Variable                | Required | Description                                                    |
+| ----------------------- | -------- | -------------------------------------------------------------- |
+| `PORT`                  | No       | Server port (default: `8087`)                                  |
+| `MONGODB_URI`           | Yes      | MongoDB connection string                                      |
+| `STRIPE_SECRET_KEY`     | Yes      | Stripe secret key (`sk_test_...` or `sk_live_...`)             |
+| `STRIPE_WEBHOOK_SECRET` | No       | Stripe webhook signing secret (`whsec_...`)                    |
+| `FRONTEND_URL`          | No       | Redirect URL after checkout (default: `http://localhost:5173`) |
+| `KAFKA_BROKER`          | No       | Kafka broker address (Kafka integration commented out)         |
 
 ---
 
@@ -145,18 +145,19 @@ Requires `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` set in the environment 
 
 ## Port Reference
 
-| Service | Port |
-|---------|------|
-| api-gateway | 3000 |
-| auth-service | 8081 |
-| patient-service | 8082 |
-| doctor-service | 8083 |
-| appointment-service | 8084 |
-| prescription-service | 8085 |
-| telemedicine-service | 8086 |
-| **payment-service** | **8087** |
-| notification-service | 3002 |
-| ai-symptom-checker | 8089 |
+| Service              | Port     |
+| -------------------- | -------- |
+| api-gateway          | 3000     |
+| auth-service         | 8081     |
+| patient-service      | 8082     |
+| doctor-service       | 8083     |
+| appointment-service  | 8084     |
+| prescription-service | 8085     |
+| telemedicine-service | 8086     |
+| **payment-service**  | **8087** |
+| notification-service | 3002     |
+| ai-symptom-checker   | 8089     |
+
 # Payment Service
 
 ## Overview
