@@ -1,6 +1,14 @@
 spring:
   application:
     name: doctor-service
+  jpa:
+    open-in-view: false
+
+logging:
+  level:
+    org.hibernate.orm.core: ERROR
+    org.hibernate.engine.transaction.jta.platform: ERROR
+    org.springframework.security: WARN
 
 # ==========================================
 # PROFILE: LOCAL (For running in IntelliJ)

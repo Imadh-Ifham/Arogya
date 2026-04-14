@@ -15,6 +15,13 @@ export const env = {
   port: parseInt(process.env.PORT || "3002", 10),
   mongodbUri: process.env.MONGODB_URI!,
 
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || "",
+    authToken: process.env.TWILIO_AUTH_TOKEN || "",
+    fromNumber: process.env.TWILIO_FROM_NUMBER || "",
+    enabled: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER),
+  },
+
   sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY || "",
     fromEmail: process.env.SENDGRID_FROM_EMAIL || "noreply@arogya.health",

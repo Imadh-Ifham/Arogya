@@ -71,7 +71,7 @@ public class DoctorController {
                 // Return a stub 200 (not 404) so the profile page still loads.
                 // id=null signals "not yet registered in doctor service".
                 .orElseGet(() -> ResponseEntity.ok(
-                        new DoctorSummaryDto(null, authUserId, null, null, null, null, null, null, "PENDING", 0.0)
+                        new DoctorSummaryDto(null, authUserId, null, null, null, null, null, null, null, "PENDING", 0.0)
                 ));
     }
 

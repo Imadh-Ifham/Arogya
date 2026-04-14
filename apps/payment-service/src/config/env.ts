@@ -2,12 +2,18 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const requiredVars = ["MONGODB_URI", "STRIPE_SECRET_KEY"] as const;
+const requiredVars = ["MONGODB_URI"] as const;
 
 for (const varName of requiredVars) {
   if (!process.env[varName]) {
     throw new Error(`Missing required environment variable: ${varName}`);
   }
+}
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn(
+    "[Payment] STRIPE_SECRET_KEY not set — Stripe calls will fail at runtime. Set it to enable payment processing.",
+  );
 }
 
 export const env = {

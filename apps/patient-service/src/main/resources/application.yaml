@@ -10,16 +10,21 @@ spring:
     multipart:
       max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:10MB}
       max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:10MB}
-
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: true
   flyway:
     enabled: true
-
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+logging:
+  level:
+    org.hibernate.orm.core: ERROR
+    org.hibernate.engine.transaction.jta.platform: ERROR
+    org.springframework.security: WARN
 
 patient:
   storage:
