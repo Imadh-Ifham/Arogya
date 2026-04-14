@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import type { ConsultationRoomStatus } from "./consultation.types.js";
+import type { ConsultationRoomStatus } from "./room.types.js";
 
 export interface ConsultationRoomDocument {
   doctorId: string;

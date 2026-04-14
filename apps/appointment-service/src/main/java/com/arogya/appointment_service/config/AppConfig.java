@@ -14,6 +14,9 @@ public class AppConfig {
     @Value("${services.telemedicine.url}")
     private String telemedicineServiceUrl;
 
+    @Value("${services.telemedicine.consultation-expiration-hours:24}")
+    private Integer telemedicineConsultationExpirationHours;
+
     @Bean
     public RestTemplate restTemplate() {
         return new RestTemplate();
@@ -27,5 +30,10 @@ public class AppConfig {
     @Bean
     public String telemedicineServiceUrl() {
         return telemedicineServiceUrl;
+    }
+
+    @Bean
+    public Integer telemedicineConsultationExpirationHours() {
+        return telemedicineConsultationExpirationHours;
     }
 }

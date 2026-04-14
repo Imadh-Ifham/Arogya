@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { consultationRouter } from "../modules/consultation/consultation.routes.js";
+import { roomRouter } from "../modules/rooms/room.routes.js";
 import { env } from "../config/env.js";
 
 export const apiRouter = Router();
@@ -14,4 +15,5 @@ apiRouter.get("/health", (_req, res) => {
   });
 });
 
+apiRouter.use("/rooms", roomRouter);
 apiRouter.use("/consultations", consultationRouter);
