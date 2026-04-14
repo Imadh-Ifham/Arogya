@@ -36,6 +36,9 @@ public class SlotGenerationService {
     /** How many days ahead to generate slots for. */
     private static final int LOOKAHEAD_DAYS = 30;
 
+    /** Duration of each generated appointment slot in minutes. */
+    private static final int SLOT_DURATION_MINUTES = 30;
+
     private final AppointmentSlotRepository slotRepository;
     private final DoctorServiceClient       doctorClient;
 
@@ -76,6 +79,27 @@ public class SlotGenerationService {
         return total;
     }
 
+    /**
+     * Regenerates slots for a single doctor identified by {@code doctorId}.
+     * Called by the internal endpoint when a doctor updates their availability
+     * so patients see the new slots immediately without waiting for the nightly run.
+     *
+     * Existing AVAILABLE slots for the doctor are deleted first so that removed
+     * templates no longer appear; BOOKED slots are left untouched.
+     */
+    public int generateSlotsForDoctor(String doctorId) {
+        return doctorClient.getDoctorById(doctorId).map(doctor -> {
+            // Remove only AVAILABLE slots — never touch already-booked ones
+            slotRepository.deleteAvailableSlotsByDoctorId(doctorId);
+            int count = generateForDoctor(doctor, LOOKAHEAD_DAYS);
+            log.info("SlotGenerationService: {} slot(s) regenerated for doctor {}", count, doctorId);
+            return count;
+        }).orElseGet(() -> {
+            log.warn("SlotGenerationService: doctor {} not found — skipping regeneration", doctorId);
+            return 0;
+        });
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private int generateForDoctor(DoctorServiceClient.DoctorInfo doctor, int days) {
@@ -106,24 +130,28 @@ public class SlotGenerationService {
                 LocalDate date = today.plusDays(i);
                 if (date.getDayOfWeek() != templateDay) continue;
 
-                LocalDateTime startDt = date.atTime(slotStart);
-                LocalDateTime endDt   = date.atTime(slotEnd);
+                // Break the availability window into SLOT_DURATION_MINUTES intervals
+                LocalTime current = slotStart;
+                while (!current.plusMinutes(SLOT_DURATION_MINUTES).isAfter(slotEnd)) {
+                    LocalDateTime startDt = date.atTime(current);
+                    LocalDateTime endDt   = date.atTime(current.plusMinutes(SLOT_DURATION_MINUTES));
 
-                // Skip if the slot already exists (idempotency)
-                if (slotRepository.existsByDoctorIdAndStartTime(doctor.id(), startDt)) continue;
-
-                AppointmentSlot slot = new AppointmentSlot();
-                slot.setDoctorId(doctor.id());
-                slot.setDoctorName(doctor.name());
-                slot.setStartTime(startDt);
-                slot.setEndTime(endDt);
-                slot.setFee(doctor.consultationFee() != null
-                        ? BigDecimal.valueOf(doctor.consultationFee())
-                        : BigDecimal.ZERO);
-                slot.setStatus(SlotStatus.AVAILABLE);
-
-                slotRepository.save(slot);
-                created++;
+                    // Skip if this slot already exists (idempotency)
+                    if (!slotRepository.existsByDoctorIdAndStartTime(doctor.id(), startDt)) {
+                        AppointmentSlot slot = new AppointmentSlot();
+                        slot.setDoctorId(doctor.id());
+                        slot.setDoctorName(doctor.name());
+                        slot.setStartTime(startDt);
+                        slot.setEndTime(endDt);
+                        slot.setFee(doctor.consultationFee() != null
+                                ? BigDecimal.valueOf(doctor.consultationFee())
+                                : BigDecimal.ZERO);
+                        slot.setStatus(SlotStatus.AVAILABLE);
+                        slotRepository.save(slot);
+                        created++;
+                    }
+                    current = current.plusMinutes(SLOT_DURATION_MINUTES);
+                }
             }
         }
         return created;

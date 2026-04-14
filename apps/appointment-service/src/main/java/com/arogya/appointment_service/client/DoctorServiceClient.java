@@ -92,6 +92,23 @@ public class DoctorServiceClient {
         }
     }
 
+    /**
+     * Returns a single doctor by ID, or empty if not found or service is unreachable.
+     * Used by SlotGenerationService when regenerating slots for one specific doctor.
+     */
+    public java.util.Optional<DoctorInfo> getDoctorById(String doctorId) {
+        String url = doctorServiceUrl + "/api/doctors/" + doctorId;
+        try {
+            ResponseEntity<DoctorInfo> response = restTemplate.exchange(
+                    url, HttpMethod.GET, null, DoctorInfo.class
+            );
+            return java.util.Optional.ofNullable(response.getBody());
+        } catch (RestClientException e) {
+            log.warn("Doctor-service unreachable when fetching doctor {}: {}", doctorId, e.getMessage());
+            return java.util.Optional.empty();
+        }
+    }
+
     /** Projection used for approved-doctor listing and specialty search. */
     public record DoctorInfo(String id, String name, Double consultationFee) {}
 

@@ -26,6 +26,10 @@ spring:
 server:
   port: 8083
 
+services:
+  appointment:
+    url: http://localhost:8084
+
 # ==========================================
 # PROFILE: DOCKER (For running via docker-compose)
 # ==========================================
@@ -49,3 +53,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8083}
+
+services:
+  appointment:
+    url: http://appointment-service:8084

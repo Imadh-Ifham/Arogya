@@ -1,5 +1,6 @@
 package com.arogya.doctor_service.controller;
 
+import com.arogya.doctor_service.client.AppointmentServiceClient;
 import com.arogya.doctor_service.dto.DoctorSummaryDto;
 import com.arogya.doctor_service.model.*;
 import com.arogya.doctor_service.service.DoctorService;
@@ -14,9 +15,11 @@ import java.util.Map;
 public class DoctorController {
 
     private final DoctorService doctorService;
+    private final AppointmentServiceClient appointmentClient;
 
-    public DoctorController(DoctorService doctorService) {
+    public DoctorController(DoctorService doctorService, AppointmentServiceClient appointmentClient) {
         this.doctorService = doctorService;
+        this.appointmentClient = appointmentClient;
     }
 
     /**
@@ -107,20 +110,26 @@ public class DoctorController {
 
     /**
      * POST /api/doctors/{id}/availability — add a weekly availability slot.
+     * Triggers immediate slot regeneration in appointment-service so patients
+     * see the new slots without waiting for the nightly cron.
      */
     @PostMapping("/{id}/availability")
     public AvailabilityTemplate addAvailability(@PathVariable Long id, @RequestBody AvailabilityTemplate template) {
-        return doctorService.addAvailability(id, template);
+        AvailabilityTemplate saved = doctorService.addAvailability(id, template);
+        appointmentClient.regenerateSlots(String.valueOf(id));
+        return saved;
     }
 
     /**
      * DELETE /api/doctors/{id}/availability/{templateId} — remove a weekly availability slot.
+     * Triggers immediate slot regeneration so removed templates no longer appear to patients.
      */
     @DeleteMapping("/{id}/availability/{templateId}")
     public ResponseEntity<Void> deleteAvailability(
             @PathVariable Long id,
             @PathVariable Long templateId) {
         doctorService.deleteAvailability(id, templateId);
+        appointmentClient.regenerateSlots(String.valueOf(id));
         return ResponseEntity.noContent().build();
     }
 }

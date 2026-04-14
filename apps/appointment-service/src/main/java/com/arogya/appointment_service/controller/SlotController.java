@@ -55,4 +55,18 @@ public class SlotController {
         int count = slotGenerationService.generateSlotsForNextDays(30);
         return ResponseEntity.ok(Map.of("generated", count));
     }
+
+    /**
+     * POST /api/appointments/slots/regenerate/{doctorId}
+     * Called internally by doctor-service whenever a doctor adds or removes an
+     * availability template.  Deletes that doctor's AVAILABLE slots and recreates
+     * them from the latest templates so patients see the changes immediately.
+     *
+     * This endpoint is internal-only — the API gateway must not expose it publicly.
+     */
+    @PostMapping("/regenerate/{doctorId}")
+    public ResponseEntity<Map<String, Integer>> regenerateSlotsForDoctor(@PathVariable String doctorId) {
+        int count = slotGenerationService.generateSlotsForDoctor(doctorId);
+        return ResponseEntity.ok(Map.of("generated", count));
+    }
 }
