@@ -6,6 +6,8 @@ import {
   getPatientPayments,
   getDoctorPayments,
   getPaymentById,
+  adminListPayments,
+  adminPaymentMetrics,
 } from "../services/payment.service";
 import { sendSuccess, sendError } from "../utils/apiResponse";
 import { InitiatePaymentBody } from "../types/payment.types";
@@ -149,6 +151,51 @@ export const getDoctorPaymentsController = async (
   } catch (error) {
     console.error("[Controller] getDoctorPayments error:", error);
     sendError(res, "Failed to retrieve payment dashboard");
+  }
+};
+
+/**
+ * GET /api/payments/admin/all
+ *
+ * Admin: list all payments with optional filters.
+ * Query params: status, patientId, doctorId, from (YYYY-MM-DD), to, page, limit
+ */
+export const adminListPaymentsController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const status    = req.query.status    as string | undefined;
+    const patientId = req.query.patientId as string | undefined;
+    const doctorId  = req.query.doctorId  as string | undefined;
+    const from      = req.query.from      as string | undefined;
+    const to        = req.query.to        as string | undefined;
+    const page      = parseInt(req.query.page  as string) || 1;
+    const limit     = Math.min(parseInt(req.query.limit as string) || 20, 100);
+
+    const result = await adminListPayments({ status, patientId, doctorId, from, to, page, limit });
+    sendSuccess(res, result, "Payments retrieved");
+  } catch (error) {
+    console.error("[Controller] adminListPayments error:", error);
+    sendError(res, "Failed to retrieve payments");
+  }
+};
+
+/**
+ * GET /api/payments/admin/metrics
+ *
+ * Admin: financial summary — totals and revenue by time window.
+ */
+export const adminPaymentMetricsController = async (
+  _req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const result = await adminPaymentMetrics();
+    sendSuccess(res, result, "Financial metrics retrieved");
+  } catch (error) {
+    console.error("[Controller] adminPaymentMetrics error:", error);
+    sendError(res, "Failed to retrieve financial metrics");
   }
 };
 

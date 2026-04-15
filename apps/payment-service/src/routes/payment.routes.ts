@@ -7,6 +7,8 @@ import {
   getMyPaymentsController,
   getDoctorPaymentsController,
   getPaymentByIdController,
+  adminListPaymentsController,
+  adminPaymentMetricsController,
 } from "../controllers/payment.controller";
 import { requireUser, requireRole } from "../middleware/auth.middleware";
 import { env } from "../config/env";
@@ -47,6 +49,24 @@ router.get(
   requireUser,
   requireRole("doctor", "admin"),
   getDoctorPaymentsController,
+);
+
+// ─── GET /api/payments/admin/all ─────────────────────────────────────────────
+// Admin: list all payments across the platform (paginated, filterable).
+router.get(
+  "/admin/all",
+  requireUser,
+  requireRole("admin"),
+  adminListPaymentsController,
+);
+
+// ─── GET /api/payments/admin/metrics ─────────────────────────────────────────
+// Admin: financial summary — totals, revenue by period.
+router.get(
+  "/admin/metrics",
+  requireUser,
+  requireRole("admin"),
+  adminPaymentMetricsController,
 );
 
 // ─── GET /api/payments/:id ────────────────────────────────────────────────────

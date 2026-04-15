@@ -47,6 +47,9 @@ const authRewrite         = { '^/(.+)': '/api/auth/$1',             '^/$': '/api
 const appointmentRewrite  = { '^/(.+)': '/api/appointments/$1',     '^/$': '/api/appointments' };
 const doctorRewrite       = { '^/(.+)': '/api/doctors/$1',          '^/$': '/api/doctors' };
 const adminRewrite        = { '^/(.+)': '/api/admin/$1',            '^/$': '/api/admin' };
+const adminAuthRewrite    = { '^/(.+)': '/api/auth/admin/$1',       '^/$': '/api/auth/admin' };
+const adminApptRewrite    = { '^/(.+)': '/api/appointments/admin/$1', '^/$': '/api/appointments/admin' };
+const adminPayRewrite     = { '^/(.+)': '/api/payments/admin/$1',   '^/$': '/api/payments/admin' };
 const patientRewrite      = { '^/(.+)': '/patients/$1',             '^/$': '/patients' };
 const telemedicineRewrite = { '^/(.+)': '/api/v1/consultations/$1', '^/$': '/api/v1/consultations' };
 const aiRewrite           = { '^/(.+)': '/ai/$1',                   '^/$': '/ai' };
@@ -77,7 +80,46 @@ router.use(
   proxy(env.services.appointment, appointmentRewrite)
 );
 
-// ─── Admin routes (doctor-service) — admin role required ──────────────────────
+// ─── Admin routes — admin role required for all ────────────────────────────────
+// Order matters: more-specific prefixes must come BEFORE the catch-all.
+
+// /api/admin/users/*  → auth-service (user account management)
+router.use(
+  '/api/admin/users',
+  stripUserHeaders,
+  verifyToken,
+  requireRole('admin'),
+  proxy(env.services.auth, adminAuthRewrite)
+);
+
+// /api/admin/metrics/users → auth-service metrics
+router.get(
+  '/api/admin/metrics/users',
+  stripUserHeaders,
+  verifyToken,
+  requireRole('admin'),
+  proxy(env.services.auth, { '^.*': '/api/auth/admin/metrics' })
+);
+
+// /api/admin/appointments/* → appointment-service
+router.use(
+  '/api/admin/appointments',
+  stripUserHeaders,
+  verifyToken,
+  requireRole('admin'),
+  proxy(env.services.appointment, adminApptRewrite)
+);
+
+// /api/admin/payments/* → payment-service
+router.use(
+  '/api/admin/payments',
+  stripUserHeaders,
+  verifyToken,
+  requireRole('admin'),
+  proxy(env.services.payment, adminPayRewrite)
+);
+
+// /api/admin/doctors/* → doctor-service (existing verify doctor feature)
 router.use(
   '/api/admin',
   stripUserHeaders,

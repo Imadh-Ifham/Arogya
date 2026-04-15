@@ -3,6 +3,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import "./config/env"; // must be first line — loads + validates env vars
 import authRoutes from "./routes/auth.routes";
+import adminRoutes from "./routes/admin.routes";
 import { AuthError } from "./services/auth.service";
 
 const app = express();
@@ -82,6 +83,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 // ─── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
+app.use("/api/auth/admin", adminRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 // Catches any request that didn't match a route above

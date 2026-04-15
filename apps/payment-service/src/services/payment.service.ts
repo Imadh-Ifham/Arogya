@@ -468,3 +468,99 @@ export const getDoctorPayments = async (
 export const getPaymentById = async (paymentId: string) => {
   return Payment.findOne({ paymentId }).lean();
 };
+
+// =============================================================================
+// ADMIN: All payments + financial metrics
+// =============================================================================
+
+export interface AdminPaymentsOptions {
+  status?: string;
+  patientId?: string;
+  doctorId?: string;
+  from?: string;   // ISO date string YYYY-MM-DD
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+/**
+ * Admin: list all payments with optional filtering and pagination.
+ */
+export const adminListPayments = async (opts: AdminPaymentsOptions) => {
+  const { status, patientId, doctorId, from, to, page = 1, limit = 20 } = opts;
+  const skip = (page - 1) * limit;
+
+  const filter: Record<string, unknown> = {};
+  if (status && ["PENDING", "SUCCESS", "FAILED"].includes(status)) filter.status = status;
+  if (patientId) filter.patientId = patientId;
+  if (doctorId) filter.doctorId = doctorId;
+  if (from || to) {
+    const dateFilter: Record<string, Date> = {};
+    if (from) dateFilter.$gte = new Date(from);
+    if (to) {
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      dateFilter.$lte = toDate;
+    }
+    filter.createdAt = dateFilter;
+  }
+
+  const [payments, total] = await Promise.all([
+    Payment.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Payment.countDocuments(filter),
+  ]);
+
+  return { payments, total, page, limit, totalPages: Math.ceil(total / limit) };
+};
+
+/**
+ * Admin: financial metrics — totals by status, revenue by day/week/month.
+ */
+export const adminPaymentMetrics = async () => {
+  const now = new Date();
+
+  // Define time windows
+  const startOfDay   = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+  const startOfWeek  = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay()); startOfWeek.setHours(0, 0, 0, 0);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [overallResult, dailyResult, weeklyResult, monthlyResult] = await Promise.all([
+    // Overall totals by status
+    Payment.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 }, totalAmount: { $sum: "$amount" } } },
+    ]),
+    // Today's revenue
+    Payment.aggregate([
+      { $match: { status: "SUCCESS", createdAt: { $gte: startOfDay } } },
+      { $group: { _id: null, revenue: { $sum: "$amount" }, count: { $sum: 1 } } },
+    ]),
+    // This week's revenue
+    Payment.aggregate([
+      { $match: { status: "SUCCESS", createdAt: { $gte: startOfWeek } } },
+      { $group: { _id: null, revenue: { $sum: "$amount" }, count: { $sum: 1 } } },
+    ]),
+    // This month's revenue
+    Payment.aggregate([
+      { $match: { status: "SUCCESS", createdAt: { $gte: startOfMonth } } },
+      { $group: { _id: null, revenue: { $sum: "$amount" }, count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const summary = { totalPending: 0, totalSuccess: 0, totalFailed: 0, totalRevenue: 0 };
+  for (const row of overallResult) {
+    switch (row._id) {
+      case "PENDING": summary.totalPending = row.count; break;
+      case "SUCCESS": summary.totalSuccess = row.count; summary.totalRevenue = row.totalAmount; break;
+      case "FAILED":  summary.totalFailed  = row.count; break;
+    }
+  }
+
+  return {
+    summary,
+    revenue: {
+      daily:   dailyResult[0]   ? { amount: dailyResult[0].revenue,   count: dailyResult[0].count }   : { amount: 0, count: 0 },
+      weekly:  weeklyResult[0]  ? { amount: weeklyResult[0].revenue,  count: weeklyResult[0].count }  : { amount: 0, count: 0 },
+      monthly: monthlyResult[0] ? { amount: monthlyResult[0].revenue, count: monthlyResult[0].count } : { amount: 0, count: 0 },
+    },
+  };
+};
