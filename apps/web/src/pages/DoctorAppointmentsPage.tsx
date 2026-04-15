@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import {
   fetchDoctorAppointmentsThunk,
@@ -6,7 +7,7 @@ import {
   rejectAppointmentThunk,
 } from "../store/appointment/appointment.thunk";
 import Layout from "../components/Layout";
-import { CheckCircle2, XCircle, Clock, User } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, User, Video } from "lucide-react";
 import type { AppointmentStatus } from "../modules/appointment/api/rest";
 
 const STATUS_STYLES: Record<AppointmentStatus, string> = {
@@ -171,11 +172,23 @@ export default function DoctorAppointmentsPage() {
                         </p>
                       )}
                     </div>
-                    <span
-                      className={`text-xs font-medium border rounded-full px-2.5 py-1 whitespace-nowrap ${STATUS_STYLES[apt.status]}`}
-                    >
-                      {STATUS_LABELS[apt.status]}
-                    </span>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span
+                        className={`text-xs font-medium border rounded-full px-2.5 py-1 whitespace-nowrap ${STATUS_STYLES[apt.status]}`}
+                      >
+                        {STATUS_LABELS[apt.status]}
+                      </span>
+                      {apt.appointmentType === "ONLINE" &&
+                        (apt.status === "ACCEPTED" || apt.status === "CONFIRMED") && (
+                          <Link
+                            to={`/doctor/appointments/${apt.id}/consultation`}
+                            className="flex items-center gap-1 text-xs text-teal-600 hover:underline"
+                          >
+                            <Video className="w-3 h-3" />
+                            Join session
+                          </Link>
+                        )}
+                    </div>
                   </div>
                 </div>
               ))}

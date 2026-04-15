@@ -15,6 +15,13 @@ export default defineConfig({
         target: process.env.GATEWAY_URL ?? "http://localhost:3000",
         changeOrigin: true,
       },
+      // Forward Socket.IO handshake + WebSocket upgrade directly to telemedicine-service.
+      // This avoids the need for WebSocket proxying in the API gateway during dev.
+      "/socket.io": {
+        target: process.env.TELEMEDICINE_WS_URL ?? "http://localhost:8086",
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });

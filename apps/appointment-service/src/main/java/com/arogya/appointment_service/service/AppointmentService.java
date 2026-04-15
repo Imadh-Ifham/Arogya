@@ -3,6 +3,7 @@ package com.arogya.appointment_service.service;
 import com.arogya.appointment_service.client.NotificationServiceClient;
 import com.arogya.appointment_service.client.PatientServiceClient;
 import com.arogya.appointment_service.client.PaymentServiceClient;
+import com.arogya.appointment_service.client.TelemedicineServiceClient;
 import com.arogya.appointment_service.dto.request.BookAppointmentRequest;
 import com.arogya.appointment_service.dto.request.CancelAppointmentRequest;
 import com.arogya.appointment_service.dto.request.RescheduleAppointmentRequest;
@@ -36,6 +37,7 @@ public class AppointmentService {
     private final PaymentServiceClient paymentClient;
     private final NotificationServiceClient notificationClient;
     private final PatientServiceClient patientClient;
+    private final TelemedicineServiceClient telemedicineClient;
 
     // =========================================================================
     // STEP 1 — Book appointment & initiate payment
@@ -88,6 +90,36 @@ public class AppointmentService {
                         saved.getId(), initiation.checkoutUrl());
             } catch (RuntimeException e) {
                 log.warn("Payment service unavailable for appointment {} — status remains PENDING: {}",
+                        saved.getId(), e.getMessage());
+            }
+        } else if (request.getAppointmentType() == AppointmentType.ONLINE) {
+            // For ONLINE appointments: create a Jitsi meeting room via the telemedicine service,
+            // then initiate payment. If telemedicine service is unavailable the transaction rolls
+            // back so the patient is clearly informed (they must retry).
+            try {
+                String meetingUrl = telemedicineClient.createSession(
+                        saved.getId(), patientId, slot.getDoctorId());
+                saved.setMeetingUrl(meetingUrl);
+                saved = appointmentRepository.save(saved);
+                log.info("Telemedicine session created for appointment {} — room: {}",
+                        saved.getId(), meetingUrl);
+            } catch (RuntimeException e) {
+                log.warn("Telemedicine service unavailable for appointment {} — status remains PENDING: {}",
+                        saved.getId(), e.getMessage());
+            }
+
+            // Initiate payment for the online consultation fee
+            try {
+                PaymentServiceClient.PaymentInitiation initiation =
+                        paymentClient.initiatePayment(saved.getId(), slot.getFee(), patientId, slot.getDoctorId());
+                saved.setPaymentId(initiation.paymentId());
+                saved.setCheckoutUrl(initiation.checkoutUrl());
+                saved.setStatus(AppointmentStatus.AWAITING_PAYMENT);
+                saved = appointmentRepository.save(saved);
+                log.info("Payment session created for ONLINE appointment {} — checkout: {}",
+                        saved.getId(), initiation.checkoutUrl());
+            } catch (RuntimeException e) {
+                log.warn("Payment service unavailable for ONLINE appointment {} — status remains PENDING: {}",
                         saved.getId(), e.getMessage());
             }
         }

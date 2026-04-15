@@ -103,6 +103,14 @@ function AppRoutes() {
 
       {/* Doctor routes */}
       <Route
+        path="/doctor/appointments/:id/consultation"
+        element={
+          <ProtectedRoute>
+            <ConsultationPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/doctor/dashboard"
         element={
           <ProtectedRoute>

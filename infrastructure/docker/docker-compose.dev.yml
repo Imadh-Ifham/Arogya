@@ -397,41 +397,46 @@ services:
   # -------------------------------------------------------------------------
   # Telemedicine Service — Node.js — Port 8086
   # Creates Jitsi rooms and tracks consultation sessions.
-  # Validates appointments are CONFIRMED + ONLINE before room creation.
+  # POST /api/sessions         — internal: called by appointment-service on ONLINE booking
+  # GET/POST /api/v1/telemedicine/rooms/*         — room lifecycle
+  # GET/POST /api/v1/telemedicine/consultations/* — consultation sessions
+  # GET/POST /api/v1/telemedicine/chats/*         — real-time chat (also Socket.IO)
+  # Socket.IO at ws://localhost:8086              — chat WebSocket connection
   # -------------------------------------------------------------------------
-  # telemedicine-service:
-  #   build:
-  #     context: ../../apps/telemedicine-service
-  #     dockerfile: Dockerfile
-  #   image: arogya/telemedicine-service:latest
-  #   container_name: arogya-telemedicine-service
-  #   restart: unless-stopped
-  #   depends_on:
-  #     mongodb:
-  #       condition: service_healthy
-  #     appointment-service:
-  #       condition: service_healthy
-  #   environment:
-  #     NODE_ENV: production
-  #     PORT: 8086
-  #     MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_telemedicine?authSource=admin
-  #     REQUEST_TIMEOUT_MS: 5000
-  #     ROOM_DEFAULT_EXPIRY_HOURS: 2
-  #     JITSI_BASE_URL: https://meet.jit.si
-  #     # Internal service URLs (docker network)
-  #     PATIENT_SERVICE_URL: http://patient-service:8082
-  #     DOCTOR_SERVICE_URL: http://doctor-service:8083
-  #     APPOINTMENT_SERVICE_URL: http://appointment-service:8084
-  #   ports:
-  #     - "8086:8086"
-  #   networks:
-  #     - arogya-net
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -qO- http://localhost:8086/api/v1/health || exit 1"]
-  #     interval: 15s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 20s
+  telemedicine-service:
+    build:
+      context: ../../apps/telemedicine-service
+      dockerfile: Dockerfile
+    image: arogya/telemedicine-service:latest
+    container_name: arogya-telemedicine-service
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      appointment-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8086
+      SERVICE_NAME: telemedicine-service
+      MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_telemedicine?authSource=admin
+      REQUEST_TIMEOUT_MS: 5000
+      ROOM_DEFAULT_EXPIRY_HOURS: 2
+      JITSI_BASE_URL: https://meet.jit.si
+      # Internal service URLs (docker network)
+      PATIENT_SERVICE_URL: http://patient-service:8082
+      DOCTOR_SERVICE_URL: http://doctor-service:8083
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8084
+    ports:
+      - "8086:8086"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/api/v1/telemedicine/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
  
   # -------------------------------------------------------------------------
   # AI Symptom Checker — Fastify/Node.js — Port 8089
@@ -491,6 +496,8 @@ services:
       auth-service:
         condition: service_healthy
       appointment-service:
+        condition: service_healthy
+      telemedicine-service:
         condition: service_healthy
     environment:
       NODE_ENV: production
