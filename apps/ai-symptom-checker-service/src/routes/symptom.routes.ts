@@ -54,9 +54,14 @@ export async function symptomRoutes(
   };
 
   fastify.post("/analyze", analyzeOpts, async (request, reply) => {
-    const user = request.user as { patientId?: string; sub?: string; id?: string };
+    const user = request.user as {
+      patientId?: string;
+      userId?: string;
+      sub?: string;
+      id?: string;
+    };
     const patientId =
-      user.patientId ?? user.sub ?? user.id ?? "unknown";
+      user.patientId ?? user.userId ?? user.sub ?? user.id ?? "unknown";
 
     const body = request.body as SymptomInput;
 
@@ -153,9 +158,14 @@ export async function symptomRoutes(
   };
 
   fastify.get("/history/:patientId", historyOpts, async (request, reply) => {
-    const user = request.user as { patientId?: string; sub?: string; id?: string };
+    const user = request.user as {
+      patientId?: string;
+      userId?: string;
+      sub?: string;
+      id?: string;
+    };
     const tokenPatientId =
-      user.patientId ?? user.sub ?? user.id ?? "unknown";
+      user.patientId ?? user.userId ?? user.sub ?? user.id ?? "unknown";
 
     const { patientId } = request.params as { patientId: string };
 
@@ -219,9 +229,14 @@ export async function symptomRoutes(
   };
 
   fastify.get("/analysis/:analysisId", getAnalysisOpts, async (request, reply) => {
-    const user = request.user as { patientId?: string; sub?: string; id?: string };
+    const user = request.user as {
+      patientId?: string;
+      userId?: string;
+      sub?: string;
+      id?: string;
+    };
     const tokenPatientId =
-      user.patientId ?? user.sub ?? user.id ?? "unknown";
+      user.patientId ?? user.userId ?? user.sub ?? user.id ?? "unknown";
 
     const { analysisId } = request.params as { analysisId: string };
 

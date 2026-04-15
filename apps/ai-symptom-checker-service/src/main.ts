@@ -17,7 +17,13 @@ async function buildServer() {
   const fastify = Fastify({ logger: true });
 
   // Register JWT plugin
-  await fastify.register(fastifyJwt, { secret: JWT_SECRET });
+  await fastify.register(fastifyJwt, {
+    secret: JWT_SECRET,
+    verify: {
+      allowedAud: "arogya-platform",
+      allowedIss: "arogya-auth-service",
+    },
+  });
 
   // Reusable authenticate preHandler
   async function authenticate(
@@ -28,7 +34,13 @@ async function buildServer() {
       await request.jwtVerify();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[auth] jwtVerify failed:", msg);
+      if (msg.toLowerCase().includes("signature")) {
+        console.error(
+          "[auth] jwtVerify failed: token signature is invalid. Ensure ai-symptom-checker JWT_SECRET matches auth-service JWT_SECRET."
+        );
+      } else {
+        console.error("[auth] jwtVerify failed:", msg);
+      }
       return reply.code(401).send({ error: "Unauthorized" });
     }
   }

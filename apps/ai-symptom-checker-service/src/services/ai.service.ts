@@ -129,6 +129,10 @@ export async function analyzeSymptoms(
   const client = new OpenAI({
     apiKey: process.env.AI_API_KEY as string,
     baseURL: process.env.AI_API_ENDPOINT as string,
+    defaultHeaders: {
+      "HTTP-Referer": "https://arogya.health",
+      "X-Title": "Arogya Symptom Checker",
+    },
   });
 
   const model = process.env.AI_MODEL as string;

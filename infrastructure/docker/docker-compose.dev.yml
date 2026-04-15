@@ -8,8 +8,9 @@
 #   Reset:   docker compose -f infrastructure/docker/docker-compose.dev.yml down -v
 #
 # BEFORE FIRST RUN — set your AI key:
-#   export ANTHROPIC_API_KEY=sk-ant-...
+#   export OPENROUTER_API_KEY=sk-or-v1-...
 #   (or add it to a .env file next to this file)
+#   Optional: override the model with AI_MODEL=<openrouter-model-id>
 #
 # Service URLs (from host machine):
 #   Web frontend      http://localhost:5173
@@ -434,40 +435,40 @@ services:
  
   # -------------------------------------------------------------------------
   # AI Symptom Checker — Fastify/Node.js — Port 8089
-  # Calls Claude API to analyze symptoms and recommend specialties.
+  # Calls AI API (via OpenRouter) to analyze symptoms and recommend specialties.
   #
-  # REQUIRED: Set ANTHROPIC_API_KEY in your shell before running:
-  #   export ANTHROPIC_API_KEY=sk-ant-...
+  # REQUIRED: Set OPENROUTER_API_KEY in your shell or .env file next to this file:
+  #   export OPENROUTER_API_KEY=sk-or-v1-...
   # -------------------------------------------------------------------------
-  # ai-symptom-checker:
-  #   build:
-  #     context: ../../apps/ai-symptom-checker-service
-  #     dockerfile: Dockerfile
-  #   image: arogya/ai-symptom-checker:latest
-  #   container_name: arogya-ai-symptom-checker
-  #   restart: unless-stopped
-  #   depends_on:
-  #     mongodb:
-  #       condition: service_healthy
-  #   environment:
-  #     PORT: 8089
-  #     NODE_ENV: production
-  #     MONGO_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_ai?authSource=admin
-  #     JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
-  #     # Claude API — set ANTHROPIC_API_KEY in your shell or .env file
-  #     AI_API_KEY: ${ANTHROPIC_API_KEY}
-  #     AI_API_ENDPOINT: https://api.anthropic.com/v1/messages
-  #     AI_MODEL: claude-haiku-4-5-20251001
-  #   ports:
-  #     - "8089:8089"
-  #   networks:
-  #     - arogya-net
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -qO- http://localhost:8089/health || exit 1"]
-  #     interval: 15s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 20s
+  ai-symptom-checker:
+    build:
+      context: ../../apps/ai-symptom-checker-service
+      dockerfile: Dockerfile
+    image: arogya/ai-symptom-checker:latest
+    container_name: arogya-ai-symptom-checker
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      PORT: 8089
+      NODE_ENV: production
+      MONGO_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_ai?authSource=admin
+      JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
+      # OpenRouter — set OPENROUTER_API_KEY in your shell or .env file next to this file
+      AI_API_KEY: ${OPENROUTER_API_KEY}
+      AI_API_ENDPOINT: https://openrouter.ai/api/v1
+      AI_MODEL: ${AI_MODEL:-google/gemma-3-12b-it:free}
+    ports:
+      - "8089:8089"
+    networks:
+      - arogya-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8089/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
  
   # ===========================================================================
   # GATEWAY & FRONTEND
