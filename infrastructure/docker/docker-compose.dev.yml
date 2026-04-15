@@ -432,7 +432,7 @@ services:
     networks:
       - arogya-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/api/v1/telemedicine/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8086/api/v1/telemedicine/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -451,7 +451,7 @@ services:
       dockerfile: Dockerfile
     image: arogya/ai-symptom-checker:latest
     container_name: arogya-ai-symptom-checker
-    restart: unless-stopped
+    restart: on-failure:3
     depends_on:
       mongodb:
         condition: service_healthy
@@ -461,7 +461,7 @@ services:
       MONGO_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_ai?authSource=admin
       JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
       # OpenRouter — set OPENROUTER_API_KEY in your shell or .env file next to this file
-      AI_API_KEY: ${OPENROUTER_API_KEY}
+      AI_API_KEY: ${AI_API_KEY}
       AI_API_ENDPOINT: https://openrouter.ai/api/v1
       AI_MODEL: ${AI_MODEL:-google/gemma-3-12b-it:free}
     ports:

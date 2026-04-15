@@ -301,9 +301,9 @@ public class AppointmentService {
      */
     public List<AppointmentResponse> getMyAppointments(String patientId) {
         List<Appointment> appointments = appointmentRepository.findByPatientId(patientId);
-        List<String> slotIds = appointments.stream().map(Appointment::getSlotId).toList();
+        List<String> slotIds = appointments.stream().map(Appointment::getSlotId).distinct().toList();
         Map<String, AppointmentSlot> slotMap = slotRepository.findAllById(slotIds)
-                .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s));
+            .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s, (existing, ignored) -> existing));
         return appointments.stream()
                 .map(a -> {
                     AppointmentSlot slot = slotMap.get(a.getSlotId());
@@ -399,9 +399,9 @@ public class AppointmentService {
      */
     public List<AppointmentResponse> getDoctorAppointments(String doctorId) {
         List<Appointment> appointments = appointmentRepository.findByDoctorId(doctorId);
-        List<String> slotIds = appointments.stream().map(Appointment::getSlotId).toList();
+        List<String> slotIds = appointments.stream().map(Appointment::getSlotId).distinct().toList();
         Map<String, AppointmentSlot> slotMap = slotRepository.findAllById(slotIds)
-                .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s));
+            .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s, (existing, ignored) -> existing));
         return appointments.stream()
                 .map(a -> {
                     AppointmentSlot slot = slotMap.get(a.getSlotId());

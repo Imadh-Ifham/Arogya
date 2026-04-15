@@ -1,10 +1,10 @@
 import { createServer } from "node:http";
 import { Server as SocketServer } from "socket.io";
 import { buildApp } from "./app.js";
-import { connectDatabase, disconnectDatabase } from "./config/database.js";
-import { env } from "./config/env.js";
-import { setupChatSocket } from "./modules/chat/chat.socket.js";
-import { logger } from "./telemedicine-service/shared/logger.js";
+import { connectDatabase, disconnectDatabase } from "./src/config/database.js";
+import { env } from "./src/config/env.js";
+import { setupChatSocket } from "./src/modules/chat/chat.socket.js";
+import { logger } from "./src/shared/logger.js";
 
 async function start(): Promise<void> {
   await connectDatabase();

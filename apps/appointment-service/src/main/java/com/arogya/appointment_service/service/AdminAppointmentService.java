@@ -54,7 +54,7 @@ public class AdminAppointmentService {
         // Resolve all slot IDs in one batch query for efficiency
         Set<String> slotIds = all.stream().map(Appointment::getSlotId).collect(Collectors.toSet());
         Map<String, AppointmentSlot> slotMap = slotRepository.findAllById(slotIds)
-                .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s));
+            .stream().collect(Collectors.toMap(AppointmentSlot::getId, s -> s, (existing, ignored) -> existing));
 
         // Apply filters
         List<Appointment> filtered = all.stream()
