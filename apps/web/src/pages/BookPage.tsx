@@ -40,7 +40,7 @@ export default function BookPage() {
     if (bookAppointmentThunk.fulfilled.match(result)) {
       const { checkoutUrl } = result.payload;
       if (checkoutUrl) {
-        // PHYSICAL appointment — redirect patient to Stripe Checkout
+        // Both PHYSICAL and ONLINE require Stripe payment — redirect to checkout
         window.location.href = checkoutUrl;
       } else {
         navigate("/appointments");
@@ -118,11 +118,7 @@ export default function BookPage() {
             disabled={bookingLoading === "pending" || !slot}
             className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            {bookingLoading === "pending"
-              ? "Processing…"
-              : appointmentType === "PHYSICAL"
-              ? "Continue to Payment"
-              : "Confirm Booking"}
+            {bookingLoading === "pending" ? "Processing…" : "Continue to Payment"}
           </button>
         </form>
       </div>

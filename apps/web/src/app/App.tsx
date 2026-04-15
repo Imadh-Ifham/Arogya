@@ -20,6 +20,8 @@ import DoctorProfilePage from "../pages/DoctorProfilePage";
 import DoctorAvailabilityPage from "../pages/DoctorAvailabilityPage";
 import DoctorAppointmentsPage from "../pages/DoctorAppointmentsPage";
 import AdminDashboardPage from "../pages/AdminDashboardPage";
+import PaymentSuccessPage from "../pages/PaymentSuccessPage";
+import PaymentCancelPage from "../pages/PaymentCancelPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HomePage from "../pages/HomePage";
 
@@ -50,6 +52,8 @@ function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/slots" element={<SlotsPage />} />
       <Route path="/search" element={<DoctorSearchPage />} />
+      <Route path="/payments/success" element={<PaymentSuccessPage />} />
+      <Route path="/payments/cancel" element={<PaymentCancelPage />} />
 
       {/* Protected */}
       <Route

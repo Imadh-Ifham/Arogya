@@ -40,6 +40,12 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction): vo
     req.headers['x-user-email'] = decoded.email;
     req.headers['x-user-role']  = decoded.role;
 
+     console.log(`[verifyToken] Setting headers for user ${decoded.userId} (${decoded.role})`, {
+      'x-user-id': req.headers['x-user-id'],
+      'x-user-role': req.headers['x-user-role'],
+      'x-user-email': req.headers['x-user-email'],
+    });
+
     next();
   } catch (err: any) {
     if (err.name === 'TokenExpiredError') {

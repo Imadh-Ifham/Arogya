@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { fetchMyAppointmentsThunk } from "../store/appointment/appointment.thunk";
+import { fetchMyAppointmentsThunk, devSimulatePaymentThunk } from "../store/appointment/appointment.thunk";
 import Layout from "../components/Layout";
 import type { AppointmentStatus } from "../modules/appointment/api/rest";
 
@@ -36,11 +36,12 @@ function formatDate(iso: string) {
 
 export default function AppointmentsPage() {
   const dispatch = useAppDispatch();
-  const { appointments, loading, error } = useAppSelector((s) => s.appointment);
+  const { appointments, appointmentsLoading, error } = useAppSelector((s) => s.appointment);
 
+  // Always fetch fresh on mount — Redux may hold stale data from before a booking
   useEffect(() => {
     dispatch(fetchMyAppointmentsThunk());
-  }, [dispatch]);
+  }, [dispatch]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Layout>
@@ -54,7 +55,7 @@ export default function AppointmentsPage() {
         </Link>
       </div>
 
-      {loading === "pending" && (
+      {appointmentsLoading === "pending" && (
         <div className="text-center py-16 text-muted-foreground">Loading appointments…</div>
       )}
 
@@ -64,7 +65,7 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {loading === "succeeded" && appointments.length === 0 && (
+      {appointmentsLoading === "succeeded" && appointments.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg">No appointments yet.</p>
           <Link to="/slots" className="text-teal hover:underline text-sm mt-1 inline-block">
@@ -96,14 +97,25 @@ export default function AppointmentsPage() {
             </div>
 
             {/* Payment prompt — shown if patient hasn't completed payment yet */}
-            {apt.status === "AWAITING_PAYMENT" && apt.checkoutUrl && (
-              <a
-                href={apt.checkoutUrl}
-                onClick={(e) => e.stopPropagation()}
-                className="mt-3 inline-block text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors"
-              >
-                Complete Payment →
-              </a>
+            {apt.status === "AWAITING_PAYMENT" && (
+              <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                {apt.checkoutUrl && (
+                  <a
+                    href={apt.checkoutUrl}
+                    className="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    Complete Payment →
+                  </a>
+                )}
+                {import.meta.env.DEV && apt.paymentId && (
+                  <button
+                    onClick={() => dispatch(devSimulatePaymentThunk(apt.paymentId!))}
+                    className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    [DEV] Simulate Payment
+                  </button>
+                )}
+              </div>
             )}
 
             {/* Video consultation link for confirmed online appointments */}

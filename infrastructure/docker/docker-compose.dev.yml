@@ -138,7 +138,7 @@ services:
         condition: service_healthy
     environment:
       PORT: 8087
-      NODE_ENV: production
+      NODE_ENV: development
       MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_payments?authSource=admin
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}

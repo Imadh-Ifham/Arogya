@@ -103,3 +103,8 @@ export async function rejectAppointment(id: string): Promise<Appointment> {
   const { data } = await api.patch(`/appointments/${id}/reject`);
   return data as Appointment;
 }
+
+/** DEV ONLY — simulates Stripe webhook success for a payment that is PENDING in payment-service */
+export async function devSimulatePayment(paymentId: string): Promise<void> {
+  await api.post(`/payments/dev/simulate-success/${paymentId}`);
+}

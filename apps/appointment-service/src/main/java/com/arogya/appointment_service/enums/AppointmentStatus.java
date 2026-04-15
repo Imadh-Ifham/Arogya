@@ -7,6 +7,8 @@ public enum AppointmentStatus {
     AWAITING_PAYMENT,
     /** Stripe payment succeeded; doctor can now review the request. Patient sees this as "Confirmed". */
     PAYMENT_COMPLETED,
+    /** Legacy alias for PAYMENT_COMPLETED — kept to avoid crashing on existing DB rows. */
+    CONFIRMED,
     /** Doctor accepted the appointment. */
     ACCEPTED,
     /** Doctor rejected the appointment. */

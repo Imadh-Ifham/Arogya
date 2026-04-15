@@ -16,7 +16,8 @@ export interface AppointmentState {
   doctorAppointments: Appointment[];
   slots: Slot[];
   selectedAppointmentId: string | null;
-  loading: "idle" | "pending" | "succeeded" | "failed";
+  appointmentsLoading: "idle" | "pending" | "succeeded" | "failed";
+  slotsLoading: "idle" | "pending" | "succeeded" | "failed";
   doctorLoading: "idle" | "pending" | "succeeded" | "failed";
   actionLoading: Record<string, "pending" | "succeeded" | "failed">;
   bookingLoading: "idle" | "pending" | "succeeded" | "failed";
@@ -29,7 +30,8 @@ const initialState: AppointmentState = {
   doctorAppointments: [],
   slots: [],
   selectedAppointmentId: null,
-  loading: "idle",
+  appointmentsLoading: "idle",
+  slotsLoading: "idle",
   doctorLoading: "idle",
   actionLoading: {},
   bookingLoading: "idle",
@@ -55,30 +57,30 @@ const appointmentSlice = createSlice({
     // ── Fetch slots ────────────────────────────────────────────────────────────
     builder
       .addCase(fetchSlotsThunk.pending, (state) => {
-        state.loading = "pending";
+        state.slotsLoading = "pending";
         state.error = null;
       })
       .addCase(fetchSlotsThunk.fulfilled, (state, action) => {
-        state.loading = "succeeded";
+        state.slotsLoading = "succeeded";
         state.slots = action.payload;
       })
       .addCase(fetchSlotsThunk.rejected, (state, action) => {
-        state.loading = "failed";
+        state.slotsLoading = "failed";
         state.error = action.payload as string ?? "Failed to load slots";
       });
 
     // ── Fetch my appointments ──────────────────────────────────────────────────
     builder
       .addCase(fetchMyAppointmentsThunk.pending, (state) => {
-        state.loading = "pending";
+        state.appointmentsLoading = "pending";
         state.error = null;
       })
       .addCase(fetchMyAppointmentsThunk.fulfilled, (state, action) => {
-        state.loading = "succeeded";
+        state.appointmentsLoading = "succeeded";
         state.appointments = action.payload;
       })
       .addCase(fetchMyAppointmentsThunk.rejected, (state, action) => {
-        state.loading = "failed";
+        state.appointmentsLoading = "failed";
         state.error = action.payload as string ?? "Failed to load appointments";
       });
 

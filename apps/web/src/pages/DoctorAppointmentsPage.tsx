@@ -47,12 +47,19 @@ export default function DoctorAppointmentsPage() {
     dispatch(fetchDoctorAppointmentsThunk());
   }, [dispatch]);
 
-  // Doctor acts on appointments where payment is confirmed but they haven't reviewed yet
+  // Only PAYMENT_COMPLETED appointments can be accepted/rejected
   const awaitingReview = doctorAppointments.filter(
-    (a) => a.status === "PAYMENT_COMPLETED" || a.status === "PENDING",
+    (a) => a.status === "PAYMENT_COMPLETED",
+  );
+  // Unpaid appointments are visible but the doctor can't act yet
+  const unpaidAppointments = doctorAppointments.filter(
+    (a) => a.status === "PENDING" || a.status === "AWAITING_PAYMENT",
   );
   const otherAppointments = doctorAppointments.filter(
-    (a) => a.status !== "PAYMENT_COMPLETED" && a.status !== "PENDING",
+    (a) =>
+      a.status !== "PAYMENT_COMPLETED" &&
+      a.status !== "PENDING" &&
+      a.status !== "AWAITING_PAYMENT",
   );
 
   return (
@@ -75,7 +82,7 @@ export default function DoctorAppointmentsPage() {
           </div>
         )}
 
-        {/* ── Awaiting review (action required) ── */}
+        {/* ── Awaiting review (payment confirmed — doctor can act) ── */}
         {awaitingReview.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
@@ -85,13 +92,10 @@ export default function DoctorAppointmentsPage() {
             <div className="space-y-3">
               {awaitingReview.map((apt) => {
                 const isActing = actionLoading[apt.id] === "pending";
-                const isPaid = apt.status === "PAYMENT_COMPLETED";
                 return (
                   <div
                     key={apt.id}
-                    className={`bg-card rounded-xl px-5 py-4 space-y-3 border ${
-                      isPaid ? "border-blue-200" : "border-amber-200"
-                    }`}
+                    className="bg-card rounded-xl px-5 py-4 space-y-3 border border-blue-200"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-1">
@@ -136,6 +140,48 @@ export default function DoctorAppointmentsPage() {
                   </div>
                 );
               })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Unpaid appointments (patient hasn't completed payment yet) ── */}
+        {unpaidAppointments.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Awaiting Patient Payment ({unpaidAppointments.length})
+            </h2>
+            <div className="space-y-3">
+              {unpaidAppointments.map((apt) => (
+                <div
+                  key={apt.id}
+                  className="bg-card rounded-xl px-5 py-4 border border-amber-200"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <p className="font-semibold text-foreground text-sm">
+                          {apt.patientName ?? "Patient"}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Requested {formatDateTime(apt.createdAt)}
+                      </p>
+                      <p className="text-xs text-muted-foreground/70 capitalize">
+                        {apt.appointmentType.toLowerCase()} consultation
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs font-medium border rounded-full px-2.5 py-1 whitespace-nowrap ${STATUS_STYLES[apt.status]}`}
+                    >
+                      {STATUS_LABELS[apt.status]}
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-600 mt-2">
+                    Waiting for the patient to complete payment before you can review.
+                  </p>
+                </div>
+              ))}
             </div>
           </section>
         )}

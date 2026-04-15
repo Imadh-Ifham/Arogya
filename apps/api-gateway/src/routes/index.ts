@@ -20,7 +20,26 @@ const proxy = (target: string, pathRewrite?: Record<string, string>) =>
     target,
     changeOrigin: true,
     pathRewrite,
+    preserveHeaderKeyCase: true,  // Preserve header case (x-user-id, etc.)
     on: {
+      proxyReq: (proxyReq, req) => {
+        // Explicitly forward user identity headers set by verifyToken middleware.
+        // http-proxy-middleware does not automatically carry headers mutated on
+        // req.headers after the initial request — they must be set on proxyReq.
+        const userId = req.headers['x-user-id'];
+        const role   = req.headers['x-user-role'];
+        const email  = req.headers['x-user-email'];
+        if (userId) proxyReq.setHeader('x-user-id',    userId as string);
+        if (role)   proxyReq.setHeader('x-user-role',  role   as string);
+        if (email)  proxyReq.setHeader('x-user-email', email  as string);
+
+        console.log(`[Proxy → ${target}] Forwarding headers:`, {
+          'x-user-id':    userId,
+          'x-user-role':  role,
+          'x-user-email': email,
+          'authorization': req.headers.authorization ? 'Bearer ***' : undefined,
+        });
+      },
       error: (_err, _req, res: any) => {
         res.status(502).json({
           success: false,
@@ -74,11 +93,17 @@ router.use(
 
 // ─── Appointment routes (protected) ───────────────────────────────────────────
 router.use(
+  '/api/appointments/slots',
+  stripUserHeaders,
+  proxy(env.services.appointment, slotRewrite)
+);
+router.use(
   '/api/appointments',
   stripUserHeaders,
   verifyToken,
   proxy(env.services.appointment, appointmentRewrite)
 );
+
 
 // ─── Admin routes — admin role required for all ────────────────────────────────
 // Order matters: more-specific prefixes must come BEFORE the catch-all.

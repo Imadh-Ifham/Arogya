@@ -27,6 +27,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/appointments/slots/**").permitAll()
                 // Internal endpoint called by doctor-service — no JWT, trusted via Docker network
                 .requestMatchers(HttpMethod.POST, "/api/appointments/slots/regenerate/**").permitAll()
+                // Internal callbacks from payment-service (no JWT — trusted via Docker internal network)
+                .requestMatchers(HttpMethod.POST, "/api/appointments/*/payment-confirmed").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/appointments/*/payment-failed").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

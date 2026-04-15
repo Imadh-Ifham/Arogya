@@ -13,7 +13,7 @@ function formatDateTime(iso: string) {
 
 export default function SlotsPage() {
   const dispatch = useAppDispatch();
-  const { slots, loading, error } = useAppSelector((s) => s.appointment);
+  const { slots, slotsLoading, error } = useAppSelector((s) => s.appointment);
   const { accessToken } = useAppSelector((s) => s.auth);
 
   const [dateFilter, setDateFilter] = useState("");
@@ -45,7 +45,7 @@ export default function SlotsPage() {
         </div>
       </div>
 
-      {loading === "pending" && (
+      {slotsLoading === "pending" && (
         <div className="text-center py-16 text-muted-foreground">Loading slots…</div>
       )}
 
@@ -55,7 +55,7 @@ export default function SlotsPage() {
         </div>
       )}
 
-      {loading === "succeeded" && slots.length === 0 && (
+      {slotsLoading === "succeeded" && slots.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg">No available slots found.</p>
           <p className="text-sm mt-1">
