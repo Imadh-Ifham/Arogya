@@ -29,8 +29,18 @@ export const env = {
     enabled: !!process.env.SENDGRID_API_KEY,
   },
 
-  // Ethereal SMTP — used automatically when NODE_ENV=development.
-  // Get credentials at https://ethereal.email (free, catches all mail in a browser inbox).
+  // Generic SMTP (e.g. Gmail) — takes priority over SendGrid when set.
+  // For Gmail: enable "App Passwords" and use the 16-char app password here.
+  smtp: {
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+    enabled: !!(process.env.SMTP_USER && process.env.SMTP_PASS),
+  },
+
+  // Ethereal SMTP — fallback fake inbox for dev/CI (no real emails sent).
+  // Get credentials at https://ethereal.email
   ethereal: {
     host: process.env.ETHEREAL_HOST || "smtp.ethereal.email",
     port: parseInt(process.env.ETHEREAL_PORT || "587", 10),
@@ -44,6 +54,8 @@ export const env = {
     process.env.PATIENT_SERVICE_URL || "http://localhost:8082",
   doctorServiceUrl:
     process.env.DOCTOR_SERVICE_URL || "http://localhost:8083",
+  authServiceUrl:
+    process.env.AUTH_SERVICE_URL || "http://localhost:8081",
 
   // Max attempts before giving up on a third-party API call
   retryAttempts: parseInt(process.env.RETRY_ATTEMPTS || "3", 10),

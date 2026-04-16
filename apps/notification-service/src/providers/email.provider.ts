@@ -4,23 +4,35 @@ import { env } from "../config/env";
 import { SendEmailDto } from "../types/notification.types";
 
 // ─── Provider selection ───────────────────────────────────────────────────────
-// development + Ethereal creds → Nodemailer → Ethereal fake inbox (no limits)
-// production   + SendGrid key  → SendGrid
-// anything else                → console stub (never fails)
+// Priority (first match wins):
+//   1. SMTP_USER + SMTP_PASS set        → Nodemailer SMTP (Gmail / any SMTP)
+//   2. SendGrid key set                 → SendGrid
+//   3. Ethereal creds set               → Ethereal fake inbox (dev catch-all)
+//   4. Fallback                         → console stub (never fails)
 
 if (env.sendgrid.enabled) {
   sgMail.setApiKey(env.sendgrid.apiKey);
 }
 
-// Nodemailer transporter for Ethereal — created once at startup
-const etherealTransport =
-  env.ethereal.enabled
+// Nodemailer transporter — used for SMTP (Gmail) or Ethereal
+const smtpTransport =
+  env.smtp.enabled
+    ? nodemailer.createTransport({
+        host: env.smtp.host,
+        port: env.smtp.port,
+        secure: env.smtp.port === 465,
+        auth: { user: env.smtp.user, pass: env.smtp.pass },
+      })
+    : env.ethereal.enabled
     ? nodemailer.createTransport({
         host: env.ethereal.host,
         port: env.ethereal.port,
         auth: { user: env.ethereal.user, pass: env.ethereal.pass },
       })
     : null;
+
+const smtpFromEmail = env.smtp.enabled ? env.smtp.user : env.sendgrid.fromEmail;
+const smtpFromName  = env.sendgrid.fromName;
 
 export interface EmailResult {
   success: boolean;
@@ -35,12 +47,12 @@ export const sendEmail = async (
   dto: SendEmailDto,
   maxAttempts = env.retryAttempts,
 ): Promise<EmailResult> => {
-  // ── Ethereal (development) ──────────────────────────────────────────────────
-  if (env.nodeEnv === "development" && etherealTransport) {
-    return sendViaEthereal(dto);
+  // ── SMTP / Ethereal (Nodemailer) ────────────────────────────────────────────
+  if (smtpTransport) {
+    return sendViaSmtp(dto);
   }
 
-  // ── SendGrid (production) ───────────────────────────────────────────────────
+  // ── SendGrid ────────────────────────────────────────────────────────────────
   if (env.sendgrid.enabled) {
     return sendViaSendGrid(dto, maxAttempts);
   }
@@ -56,21 +68,25 @@ export const sendEmail = async (
   };
 };
 
-// ─── Ethereal transport ───────────────────────────────────────────────────────
+// ─── SMTP transport (Gmail or Ethereal) ──────────────────────────────────────
 
-const sendViaEthereal = async (dto: SendEmailDto): Promise<EmailResult> => {
+const sendViaSmtp = async (dto: SendEmailDto): Promise<EmailResult> => {
+  const label = env.smtp.enabled ? "EMAIL-SMTP" : "EMAIL-ETHEREAL";
   try {
-    const info = await etherealTransport!.sendMail({
-      from: `"${env.sendgrid.fromName}" <${env.sendgrid.fromEmail}>`,
+    const info = await smtpTransport!.sendMail({
+      from: `"${smtpFromName}" <${smtpFromEmail}>`,
       to: dto.toName ? `"${dto.toName}" <${dto.to}>` : dto.to,
       subject: dto.subject,
       html: dto.htmlBody,
       text: dto.textBody ?? stripHtml(dto.htmlBody),
     });
 
-    // Ethereal gives a URL where you can read the email in your browser
     const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
-    console.log(`[EMAIL-ETHEREAL] Sent! Preview URL: ${previewUrl}`);
+    if (previewUrl) {
+      console.log(`[${label}] Sent! Preview URL: ${previewUrl}`);
+    } else {
+      console.log(`[${label}] Sent to ${dto.to} — messageId: ${info.messageId}`);
+    }
 
     return {
       success: true,
@@ -80,7 +96,7 @@ const sendViaEthereal = async (dto: SendEmailDto): Promise<EmailResult> => {
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[EMAIL-ETHEREAL] Failed:", message);
+    console.error(`[${label}] Failed:`, message);
     return { success: false, errorMessage: message };
   }
 };

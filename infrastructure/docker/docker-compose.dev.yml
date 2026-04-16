@@ -49,8 +49,6 @@ volumes:
     name: arogya-postgres-data
   mongodb-data:
     name: arogya-mongodb-data
-  notification-mongodb-data:
-    name: arogya-notification-mongodb-data
  
 # ---------------------------------------------------------------------------
 # Services
@@ -157,38 +155,15 @@ services:
       start_period: 15s
  
   # -------------------------------------------------------------------------
-  # Notification MongoDB — dedicated store for notification logs & templates
-  # Kept separate from the shared mongodb instance so this service can be
-  # scaled or swapped without touching auth/telemedicine data.
-  # -------------------------------------------------------------------------
-  notification-mongodb:
-    image: mongo:7.0
-    container_name: arogya-notification-mongodb
-    restart: unless-stopped
-    command: ["mongod", "--quiet", "--setParameter", "logLevel=0", "--setParameter", "diagnosticDataCollectionEnabled=false"]
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: arogya
-      MONGO_INITDB_ROOT_PASSWORD: arogya_secret
-      MONGO_INITDB_DATABASE: arogya_notifications
-    volumes:
-      - notification-mongodb-data:/data/db
-    # Not exposed to host — only reachable inside arogya-net
-    networks:
-      - arogya-net
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/27017' 2>/dev/null || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
- 
-  # -------------------------------------------------------------------------
   # Notification Service — Node.js/Express — Port 3002
   # Sends SMS (Twilio) and email (SendGrid) on behalf of Appointment,
   # Payment, and Prescription services. Logs every dispatch for compliance.
   #
   # Twilio/SendGrid credentials are optional — when absent the service stubs
   # both providers and logs message bodies to stdout (safe for dev/CI).
+  #
+  # Uses the shared mongodb container (arogya-mongodb) for the
+  # arogya_notifications database — same credentials, separate DB name.
   #
   # REST API:
   #   POST /api/notifications/send        — dispatch a notification
@@ -207,16 +182,25 @@ services:
     container_name: arogya-notification-service
     restart: unless-stopped
     depends_on:
-      notification-mongodb:
+      mongodb:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3002
-      MONGODB_URI: mongodb://arogya:arogya_secret@notification-mongodb:27017/arogya_notifications?authSource=admin
-      # Internal service URLs — used to resolve patient/doctor contact details
+      MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_notifications?authSource=admin
+      # Internal service URLs — used to resolve patient/doctor/user contact details
       PATIENT_SERVICE_URL: http://patient-service:8082
       DOCTOR_SERVICE_URL: http://doctor-service:8083
-      # SendGrid — leave blank to use the console stub (safe for dev/CI)
+      AUTH_SERVICE_URL: http://auth-service:8081
+      # Gmail SMTP — takes priority over SendGrid when SMTP_USER + SMTP_PASS are set.
+      # Use a Gmail App Password (Google Account → Security → App Passwords).
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      # SendGrid — fallback when SMTP creds are not set.
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
       SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@arogya.health}
       SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-Arogya Health}

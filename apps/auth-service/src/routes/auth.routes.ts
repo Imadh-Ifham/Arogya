@@ -5,6 +5,7 @@ import {
   refreshController,
   logoutController,
   getMeController,
+  getInternalUserController,
 } from "../controllers/auth.controller";
 import { validate } from "../middleware/validate";
 import {
@@ -42,6 +43,12 @@ router.post("/logout", validate(refreshRules), logoutController);
 
 // GET /api/auth/me
 router.get("/me", verifyToken, getMeController);
+
+// ─── Internal service-to-service endpoint (no JWT required) ───────────────────
+// Used by notification-service to resolve a user's email + name by their auth userId.
+// NOT exposed through the API Gateway — internal Docker network only.
+// GET /api/auth/internal/users/:userId
+router.get("/internal/users/:userId", getInternalUserController);
 
 // ─── Health check ──────────────────────────────────────────────────────────────
 // Every microservice must expose this. The API Gateway, Docker, and
