@@ -86,7 +86,9 @@ export default function AppointmentsPage() {
                 <p className="font-semibold text-foreground text-sm">
                   {apt.doctorName ?? "Doctor"}
                 </p>
-                <p className="text-xs text-muted-foreground">Booked {formatDate(apt.createdAt)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {apt.slotStartTime ? formatDate(apt.slotStartTime) : formatDate(apt.createdAt)}
+                </p>
                 <p className="text-xs text-muted-foreground/70 capitalize">{apt.appointmentType.toLowerCase()}</p>
               </div>
               <span
@@ -99,7 +101,7 @@ export default function AppointmentsPage() {
             {/* Payment prompt — shown if patient hasn't completed payment yet */}
             {apt.status === "AWAITING_PAYMENT" && (
               <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                {apt.checkoutUrl && (
+                {apt.checkoutUrl && apt.appointmentType !== "ONLINE" && (
                   <a
                     href={apt.checkoutUrl}
                     className="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors"
@@ -107,12 +109,12 @@ export default function AppointmentsPage() {
                     Complete Payment →
                   </a>
                 )}
-                {import.meta.env.DEV && apt.paymentId && (
+                {apt.appointmentType === "ONLINE" && apt.paymentId && (
                   <button
                     onClick={() => dispatch(devSimulatePaymentThunk(apt.paymentId!))}
-                    className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 transition-colors"
+                    className="text-xs bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 transition-colors"
                   >
-                    [DEV] Simulate Payment
+                    Confirm online consultation
                   </button>
                 )}
               </div>

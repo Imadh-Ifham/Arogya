@@ -39,6 +39,8 @@ export interface Appointment {
   updatedAt: string;
   doctorName?: string | null;
   patientName?: string | null;
+  slotStartTime?: string | null;
+  slotEndTime?: string | null;
 }
 
 export interface SlotsFilter {
@@ -107,4 +109,10 @@ export async function rejectAppointment(id: string): Promise<Appointment> {
 /** DEV ONLY — simulates Stripe webhook success for a payment that is PENDING in payment-service */
 export async function devSimulatePayment(paymentId: string): Promise<void> {
   await api.post(`/payments/dev/simulate-success/${paymentId}`);
+}
+
+/** Mark appointment as COMPLETED after a telemedicine session ends. */
+export async function completeAppointment(id: string): Promise<Appointment> {
+  const { data } = await api.patch(`/appointments/${id}/complete`);
+  return data as Appointment;
 }

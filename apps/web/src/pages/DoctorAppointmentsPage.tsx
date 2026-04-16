@@ -152,7 +152,7 @@ export default function DoctorAppointmentsPage() {
                           </p>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Requested {formatDateTime(apt.createdAt)}
+                          {apt.slotStartTime ? formatDateTime(apt.slotStartTime) : formatDateTime(apt.createdAt)}
                         </p>
                         <p className="text-xs text-muted-foreground/70 capitalize">
                           {apt.appointmentType.toLowerCase()} consultation

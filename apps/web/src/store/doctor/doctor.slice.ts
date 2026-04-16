@@ -80,7 +80,7 @@ const doctorSlice = createSlice({
       })
       .addCase(fetchDoctors.rejected, (state, action) => {
         state.loading = "failed";
-        state.error = action.error.message ?? "Failed to load doctors";
+        state.error = (action.payload as string) ?? action.error.message ?? "Failed to load doctors";
       });
 
     // ── Fetch my doctor profile ────────────────────────────────────────────────

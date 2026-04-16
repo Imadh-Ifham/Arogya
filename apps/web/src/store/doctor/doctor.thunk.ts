@@ -14,11 +14,11 @@ export const fetchDoctors = createAsyncThunk<Doctor[], string | undefined, { rej
   "doctor/fetchAll",
   async (specialty, { rejectWithValue }) => {
     try {
-      const profiles = await searchDoctors(specialty ? { specialty, status: "APPROVED" } : { status: "APPROVED" });
+      const profiles = await searchDoctors(specialty ? { specialty } : {});
       return profiles
-        .filter((p) => p.authUserId != null)
+        .filter((p) => p.authUserId != null || p.id != null)
         .map((p) => ({
-          id: p.authUserId,
+          id: (p.authUserId ?? p.id) as string,
           name: p.name ?? "",
           specialization: p.specialty ?? "",
         }));

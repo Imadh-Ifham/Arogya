@@ -9,6 +9,7 @@ import {
   fetchDoctorAppointmentsThunk,
   acceptAppointmentThunk,
   rejectAppointmentThunk,
+  completeAppointmentThunk,
 } from "./appointment.thunk";
 
 export interface AppointmentState {
@@ -109,6 +110,14 @@ const appointmentSlice = createSlice({
     builder.addCase(rescheduleAppointmentThunk.fulfilled, (state, action) => {
       const idx = state.appointments.findIndex((a) => a.id === action.payload.id);
       if (idx !== -1) state.appointments[idx] = action.payload;
+    });
+
+    // ── Complete appointment (session ended) ───────────────────────────────────
+    builder.addCase(completeAppointmentThunk.fulfilled, (state, action) => {
+      const idx = state.appointments.findIndex((a) => a.id === action.payload.id);
+      if (idx !== -1) state.appointments[idx] = action.payload;
+      const didx = state.doctorAppointments.findIndex((a) => a.id === action.payload.id);
+      if (didx !== -1) state.doctorAppointments[didx] = action.payload;
     });
 
     // ── Doctor: fetch their appointments ──────────────────────────────────────

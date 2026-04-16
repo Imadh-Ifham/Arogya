@@ -124,6 +124,17 @@ export const rescheduleAppointmentThunk = createAsyncThunk<
 // Keep old export name as alias so doctor.thunk and any other old refs don't break
 export const fetchAppointments = fetchMyAppointmentsThunk;
 
+export const completeAppointmentThunk = createAsyncThunk<Appointment, string, { rejectValue: string }>(
+  "appointment/complete",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await appointmentApi.completeAppointment(id);
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message ?? "Failed to complete appointment");
+    }
+  },
+);
+
 /** DEV ONLY — simulates Stripe webhook, then re-fetches appointments */
 export const devSimulatePaymentThunk = createAsyncThunk<void, string, { rejectValue: string }>(
   "appointment/devSimulatePayment",

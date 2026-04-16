@@ -308,7 +308,9 @@ public class AppointmentService {
                 .map(a -> {
                     AppointmentSlot slot = slotMap.get(a.getSlotId());
                     String doctorName = slot != null ? slot.getDoctorName() : null;
-                    return AppointmentResponse.from(a, doctorName, null);
+                    return AppointmentResponse.from(a, doctorName, null,
+                            slot != null ? slot.getStartTime() : null,
+                            slot != null ? slot.getEndTime()   : null);
                 })
                 .toList();
     }
@@ -405,11 +407,33 @@ public class AppointmentService {
         return appointments.stream()
                 .map(a -> {
                     AppointmentSlot slot = slotMap.get(a.getSlotId());
-                    String doctorName = slot != null ? slot.getDoctorName() : null;
+                    String doctorName  = slot != null ? slot.getDoctorName() : null;
                     String patientName = patientClient.getPatientName(a.getPatientId()).orElse(null);
-                    return AppointmentResponse.from(a, doctorName, patientName);
+                    return AppointmentResponse.from(a, doctorName, patientName,
+                            slot != null ? slot.getStartTime() : null,
+                            slot != null ? slot.getEndTime()   : null);
                 })
                 .toList();
+    }
+
+    /**
+     * Marks an appointment as COMPLETED after the telemedicine session ends.
+     * Called by the frontend when the doctor ends the consultation.
+     * Guard: appointment must be in ACCEPTED status.
+     */
+    @Transactional
+    public AppointmentResponse completeAppointment(String appointmentId, String userId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
+
+        if (appointment.getStatus() != AppointmentStatus.ACCEPTED
+                && appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new IllegalStateException(
+                    "Cannot complete appointment with status: " + appointment.getStatus());
+        }
+
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+        return AppointmentResponse.from(appointmentRepository.save(appointment));
     }
 
     // =========================================================================

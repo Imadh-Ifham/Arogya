@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAppSelector } from "../app/hooks";
+import { useAppSelector, useAppDispatch } from "../app/hooks";
 import { fetchAppointment } from "../modules/appointment/api/rest";
+import { completeAppointmentThunk } from "../store/appointment/appointment.thunk";
 import type { Appointment } from "../modules/appointment/api/rest";
 import {
   fetchConsultationByAppointment,
@@ -157,6 +158,7 @@ function ConsentCheckpoint({ onAccept, role }: { onAccept: () => void; role: "do
 export default function ConsultationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { user } = useAppSelector((s) => s.auth);
 
   const role = user?.role === "doctor" ? "doctor" : "patient";
@@ -405,13 +407,19 @@ export default function ConsultationPage() {
       try {
         const updated = await updateConsultationStatus(consultation.id, status, role);
         setConsultation(updated);
-        if (status === "ended" && role === "doctor") {
-          const noteList = await fetchClinicalNotes(consultation.id);
-          setNotes(noteList);
+        if (status === "ended") {
+          // Mark the linked appointment as COMPLETED in the appointment service
+          if (id) {
+            dispatch(completeAppointmentThunk(id));
+          }
+          if (role === "doctor") {
+            const noteList = await fetchClinicalNotes(consultation.id);
+            setNotes(noteList);
+          }
         }
       } catch { /* silent */ }
     },
-    [consultation, role],
+    [consultation, role, id, dispatch],
   );
 
   const handleSaveNote = useCallback(async () => {

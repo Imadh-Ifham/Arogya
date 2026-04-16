@@ -24,7 +24,6 @@ export interface AvailabilitySlot {
 
 export interface DoctorSearchFilter {
   specialty?: string;
-  status?: "APPROVED";
 }
 
 // Payload for POST /api/doctors/register (maps to Doctor entity fields)
@@ -57,9 +56,8 @@ export interface AddAvailabilityPayload {
 export async function searchDoctors(filter?: DoctorSearchFilter): Promise<DoctorProfile[]> {
   const params: Record<string, string> = {};
   if (filter?.specialty) params.specialty = filter.specialty;
-  if (filter?.status) params.status = filter.status;
   const { data } = await api.get("/doctors", { params });
-  return (Array.isArray(data) ? data : data.data ?? []) as DoctorProfile[];
+  return (Array.isArray(data) ? data : data.content ?? data.data ?? []) as DoctorProfile[];
 }
 
 export async function registerDoctor(payload: RegisterDoctorPayload): Promise<DoctorProfile> {

@@ -168,6 +168,19 @@ public class AppointmentController {
         return ResponseEntity.ok(appointmentService.rejectAppointment(id, auth.getName()));
     }
 
+    /**
+     * Marks an appointment as COMPLETED after a telemedicine session ends.
+     * Called by the frontend (doctor or patient) when the consultation session ends.
+     * Guard: appointment must be in ACCEPTED or CONFIRMED status.
+     */
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<AppointmentResponse> completeAppointment(
+            @PathVariable String id,
+            Authentication auth) {
+
+        return ResponseEntity.ok(appointmentService.completeAppointment(id, auth.getName()));
+    }
+
     /** Doctor views all their appointments (doctor dashboard). */
     @GetMapping("/doctor")
     public ResponseEntity<List<AppointmentResponse>> getDoctorAppointments(Authentication auth) {

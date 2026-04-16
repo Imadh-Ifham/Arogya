@@ -34,6 +34,10 @@ public class AppointmentResponse {
     /** Denormalised for display — populated from patient-service. */
     private String patientName;
 
+    /** Appointment slot start/end time — denormalised from AppointmentSlot for display. */
+    private LocalDateTime slotStartTime;
+    private LocalDateTime slotEndTime;
+
     public static AppointmentResponse from(Appointment a) {
         AppointmentResponse r = new AppointmentResponse();
         r.id                 = a.getId();
@@ -55,6 +59,14 @@ public class AppointmentResponse {
         AppointmentResponse r = from(a);
         r.doctorName  = doctorName;
         r.patientName = patientName;
+        return r;
+    }
+
+    public static AppointmentResponse from(Appointment a, String doctorName, String patientName,
+                                           LocalDateTime slotStartTime, LocalDateTime slotEndTime) {
+        AppointmentResponse r = from(a, doctorName, patientName);
+        r.slotStartTime = slotStartTime;
+        r.slotEndTime   = slotEndTime;
         return r;
     }
 }

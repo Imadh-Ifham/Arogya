@@ -129,8 +129,13 @@ export default function AppointmentDetailPage() {
             <p className="text-sm text-muted-foreground capitalize">
               Type: {appointment.appointmentType.toLowerCase()}
             </p>
-            <p className="text-xs text-muted-foreground/70">Booked {formatDateTime(appointment.createdAt)}</p>
-            <p className="text-xs text-muted-foreground/70">Updated {formatDateTime(appointment.updatedAt)}</p>
+            {appointment.slotStartTime && (
+              <p className="text-xs text-muted-foreground/70">
+                Appointment: {formatDateTime(appointment.slotStartTime)}
+                {appointment.slotEndTime && ` – ${new Date(appointment.slotEndTime).toLocaleTimeString("en-IN", { timeStyle: "short" })}`}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground/70">Booked on {formatDateTime(appointment.createdAt)}</p>
             {appointment.cancellationReason && (
               <p className="text-sm text-red-500">
                 Reason: {appointment.cancellationReason}
@@ -148,6 +153,20 @@ export default function AppointmentDetailPage() {
                 </Link>
                 <p className="text-xs text-muted-foreground mt-1.5">
                   Your online consultation room is ready.
+                </p>
+              </div>
+            )}
+            {appointment.appointmentType === "ONLINE" && appointment.status === "COMPLETED" && (
+              <div className="pt-2 border-t border-border mt-2">
+                <Link
+                  to={`/appointments/${appointment.id}/consultation`}
+                  className="inline-flex items-center gap-2 border border-border text-foreground text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <Video className="w-4 h-4" />
+                  View Session Notes
+                </Link>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Your consultation has ended. Any released clinical notes are available here.
                 </p>
               </div>
             )}
