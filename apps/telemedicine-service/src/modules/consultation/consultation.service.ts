@@ -16,7 +16,7 @@ import { logger } from "../../shared/logger.js";
 import { appointmentService } from "../../clients/appointment.client.js";
 import {
   assertRoomIsUsable,
-  getOrCreateUsableRoomByParticipants,
+  createFreshRoom,
   setRoomExpiryFromConsultation,
   getUsableRoomByIdForParticipants,
 } from "../rooms/room.service.js";
@@ -37,9 +37,10 @@ export async function createConsultationSession(
         input.doctorId,
         input.patientId,
       )
-    : await getOrCreateUsableRoomByParticipants(
+    : await createFreshRoom(
         input.doctorId,
         input.patientId,
+        input.expirationHours,
       );
 
   const roomWithRefreshedExpiry = await setRoomExpiryFromConsultation(

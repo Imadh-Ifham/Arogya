@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import * as appointmentApi from "../../modules/appointment/api/rest";
 import type { Appointment, Slot, SlotsFilter, AppointmentType } from "../../modules/appointment/api/rest";
+import { createConsultation } from "../../modules/telemedicine/api/rest";
 
 export const fetchDoctorAppointmentsThunk = createAsyncThunk<Appointment[], void, { rejectValue: string }>(
   "appointment/fetchDoctorAppointments",
@@ -17,7 +18,25 @@ export const acceptAppointmentThunk = createAsyncThunk<Appointment, string, { re
   "appointment/accept",
   async (id, { rejectWithValue }) => {
     try {
-      return await appointmentApi.acceptAppointment(id);
+      const appointment = await appointmentApi.acceptAppointment(id);
+
+      // For ONLINE appointments, eagerly create the telemedicine consultation
+      // so it appears on the telemedicine dashboard immediately.
+      if (appointment.appointmentType === "ONLINE") {
+        try {
+          await createConsultation({
+            appointmentId: appointment.id,
+            patientId: appointment.patientId,
+            doctorId: appointment.doctorId,
+            startsAt: new Date().toISOString(),
+            expirationHours: 2,
+          });
+        } catch {
+          // Non-fatal — ConsultationPage will create it lazily if it doesn't exist
+        }
+      }
+
+      return appointment;
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message ?? "Failed to accept appointment");
     }

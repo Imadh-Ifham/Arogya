@@ -4,6 +4,7 @@ import { buildApp } from "./app.js";
 import { connectDatabase, disconnectDatabase } from "./src/config/database.js";
 import { env } from "./src/config/env.js";
 import { setupChatSocket } from "./src/modules/chat/chat.socket.js";
+import { setIo } from "./src/shared/socket-io.js";
 import { logger } from "./src/shared/logger.js";
 
 async function start(): Promise<void> {
@@ -18,6 +19,7 @@ async function start(): Promise<void> {
     },
   });
 
+  setIo(io);
   setupChatSocket(io);
 
   const server = httpServer.listen(env.port, "0.0.0.0", () => {

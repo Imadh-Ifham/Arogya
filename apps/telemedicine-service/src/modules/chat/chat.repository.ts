@@ -114,7 +114,7 @@ export async function listChatMessagesByRoom(
   }
 
   const messages = (await ChatMessageModel.find(query)
-    .sort({ createdAt: -1 })
+    .sort({ createdAt: 1 })
     .limit(limit)
     .lean()) as ChatMessageDocumentView[];
 

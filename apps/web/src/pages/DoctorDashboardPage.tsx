@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { fetchMyDoctorProfileThunk } from "../store/doctor/doctor.thunk";
 import Layout from "../components/Layout";
-import { Stethoscope, CalendarDays, UserCircle, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { Stethoscope, CalendarDays, UserCircle, AlertCircle, CheckCircle2, Clock, Video } from "lucide-react";
 
 const STATUS_CONFIG = {
   APPROVED: {
@@ -117,7 +117,7 @@ export default function DoctorDashboardPage() {
         )}
 
         {/* Action cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             to="/doctor/profile"
             className="bg-card border border-border rounded-xl p-5 hover:border-primary transition-colors group"
@@ -154,6 +154,19 @@ export default function DoctorDashboardPage() {
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               View and manage patient appointments
+            </p>
+          </Link>
+
+          <Link
+            to="/telemedicine"
+            className="bg-card border border-border rounded-xl p-5 hover:border-primary transition-colors group"
+          >
+            <Video className="w-6 h-6 text-primary mb-3" />
+            <p className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors">
+              Telemedicine
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Manage your online consultations
             </p>
           </Link>
         </div>

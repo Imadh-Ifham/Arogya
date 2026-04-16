@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import {
@@ -7,7 +7,7 @@ import {
   rejectAppointmentThunk,
 } from "../store/appointment/appointment.thunk";
 import Layout from "../components/Layout";
-import { CheckCircle2, XCircle, Clock, User, Video } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, User, Video, ArrowRight } from "lucide-react";
 import type { AppointmentStatus } from "../modules/appointment/api/rest";
 
 const STATUS_STYLES: Record<AppointmentStatus, string> = {
@@ -43,9 +43,18 @@ export default function DoctorAppointmentsPage() {
   const { doctorAppointments, doctorLoading, doctorError, actionLoading } =
     useAppSelector((s) => s.appointment);
 
+  const [acceptedOnlineId, setAcceptedOnlineId] = useState<string | null>(null);
+
   useEffect(() => {
     dispatch(fetchDoctorAppointmentsThunk());
   }, [dispatch]);
+
+  const handleAccept = async (aptId: string, isOnline: boolean) => {
+    const result = await dispatch(acceptAppointmentThunk(aptId));
+    if (acceptAppointmentThunk.fulfilled.match(result) && isOnline) {
+      setAcceptedOnlineId(aptId);
+    }
+  };
 
   // Only PAYMENT_COMPLETED appointments can be accepted/rejected
   const awaitingReview = doctorAppointments.filter(
@@ -71,6 +80,43 @@ export default function DoctorAppointmentsPage() {
             Review and respond to appointment requests from your patients.
           </p>
         </div>
+
+        {/* ── Online appointment accepted — telemedicine CTA ── */}
+        {acceptedOnlineId && (
+          <div className="flex items-center justify-between gap-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-green-800">Online appointment accepted</p>
+                <p className="text-xs text-green-700 mt-0.5">
+                  A telemedicine consultation room has been created for this appointment.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                to={`/doctor/appointments/${acceptedOnlineId}/consultation`}
+                className="flex items-center gap-1.5 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                <Video className="w-3.5 h-3.5" />
+                Open Room
+              </Link>
+              <Link
+                to="/telemedicine"
+                className="flex items-center gap-1.5 text-xs border border-green-300 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
+              >
+                All consultations
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <button
+                onClick={() => setAcceptedOnlineId(null)}
+                className="text-green-500 hover:text-green-700 text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         {doctorLoading === "pending" && (
           <div className="text-center py-16 text-muted-foreground">Loading appointments…</div>
@@ -121,7 +167,7 @@ export default function DoctorAppointmentsPage() {
 
                     <div className="flex gap-2 pt-1">
                       <button
-                        onClick={() => dispatch(acceptAppointmentThunk(apt.id))}
+                        onClick={() => handleAccept(apt.id, apt.appointmentType === "ONLINE")}
                         disabled={isActing}
                         className="flex items-center gap-1.5 text-xs bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
                       >

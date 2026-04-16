@@ -130,8 +130,13 @@ export async function fetchConsultationByAppointment(
 export async function updateConsultationStatus(
   id: string,
   status: ConsultationStatus,
+  callerRole?: string,
 ): Promise<ConsultationView> {
-  const { data } = await api.patch(`/telemedicine/consultations/${id}/status`, { status });
+  const { data } = await api.patch(
+    `/telemedicine/consultations/${id}/status`,
+    { status },
+    callerRole ? { headers: { "x-caller-role": callerRole } } : undefined,
+  );
   return (data.data ?? data) as ConsultationView;
 }
 
@@ -144,7 +149,7 @@ export async function fetchChatMessages(
 ): Promise<ChatMessage[]> {
   const params: Record<string, string | number> = { limit };
   if (before) params.before = before;
-  const { data } = await api.get(`/telemedicine/chats/${roomId}/messages`, { params });
+  const { data } = await api.get(`/telemedicine/chats/rooms/${roomId}/messages`, { params });
   return (data.data ?? data) as ChatMessage[];
 }
 
@@ -153,7 +158,7 @@ export async function sendChatMessageRest(
   content: string,
   triageTags?: ChatTriageTag[],
 ): Promise<{ message: ChatMessage; escalationGuidance?: string }> {
-  const { data } = await api.post(`/telemedicine/chats/${roomId}/messages`, {
+  const { data } = await api.post(`/telemedicine/chats/rooms/${roomId}/messages`, {
     content,
     triageTags,
   });

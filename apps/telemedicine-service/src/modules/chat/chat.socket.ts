@@ -23,8 +23,14 @@ interface AckResponse<T = unknown> {
 }
 
 function getActorFromSocket(socket: Socket): ChatActor {
-  const userId = socket.handshake.headers["x-user-id"];
-  const userRole = socket.handshake.headers["x-user-role"];
+  // Prefer headers (server-to-server / polling), fall back to auth object
+  // (browser WebSocket upgrades block custom headers, so the client sends
+  // credentials via socket.io's auth option instead).
+  const headers = socket.handshake.headers;
+  const auth = socket.handshake.auth as Record<string, unknown>;
+
+  const userId = headers["x-user-id"] ?? auth["x-user-id"];
+  const userRole = headers["x-user-role"] ?? auth["x-user-role"];
 
   const id = typeof userId === "string" ? userId : "";
   const role = typeof userRole === "string" ? userRole : "";

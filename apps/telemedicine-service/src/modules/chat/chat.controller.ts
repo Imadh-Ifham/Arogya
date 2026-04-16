@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { HttpError } from "../../shared/http/error-handler.js";
 import type { ApiResponse } from "../../shared/types/api-response.js";
+import { getIo } from "../../shared/socket-io.js";
 import {
   createRoomChatMessage,
   deleteRoomChatMessage,
@@ -96,6 +97,21 @@ export async function createChatMessageHandler(
   };
 
   const result = await createRoomChatMessage(roomId, payload, actor);
+
+  // Broadcast to the Socket.IO room so all connected participants see the message
+  // in real time, even when the sender used the REST path (e.g. socket fallback).
+  const io = getIo();
+  if (io) {
+    io.to(roomId).emit("chat:message.new", result);
+    if (result.escalationGuidance) {
+      io.to(roomId).emit("chat:safety.flagged", {
+        roomId,
+        messageId: result.message.id,
+        escalationGuidance: result.escalationGuidance,
+      });
+    }
+  }
+
   res.status(201).json({ success: true, data: result });
 }
 

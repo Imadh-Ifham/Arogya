@@ -7,6 +7,7 @@ import { fetchAppointment } from "../modules/appointment/api/rest";
 import type { Appointment, AppointmentStatus } from "../modules/appointment/api/rest";
 import { getDoctorLabel, getDoctorName } from "../data/mockDoctors";
 import Layout from "../components/Layout";
+import { Video } from "lucide-react";
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
@@ -137,12 +138,18 @@ export default function AppointmentDetailPage() {
             )}
             {appointment.appointmentType === "ONLINE" &&
               (appointment.status === "ACCEPTED" || appointment.status === "CONFIRMED") && (
-              <Link
-                to={`/appointments/${appointment.id}/consultation`}
-                className="inline-block text-sm text-teal hover:underline"
-              >
-                Join video consultation →
-              </Link>
+              <div className="pt-2 border-t border-border mt-2">
+                <Link
+                  to={`/appointments/${appointment.id}/consultation`}
+                  className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-sm font-medium px-4 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  <Video className="w-4 h-4" />
+                  Join Video Consultation
+                </Link>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Your online consultation room is ready.
+                </p>
+              </div>
             )}
           </div>
 

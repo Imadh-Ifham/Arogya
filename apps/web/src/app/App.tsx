@@ -15,6 +15,7 @@ import PatientProfilePage from "../pages/PatientProfilePage";
 import DoctorSearchPage from "../pages/DoctorSearchPage";
 import SymptomCheckerPage from "../pages/SymptomCheckerPage";
 import ConsultationPage from "../pages/ConsultationPage";
+import TelemedicineDashboardPage from "../pages/TelemedicineDashboardPage";
 import DoctorDashboardPage from "../pages/DoctorDashboardPage";
 import DoctorProfilePage from "../pages/DoctorProfilePage";
 import DoctorAvailabilityPage from "../pages/DoctorAvailabilityPage";
@@ -101,6 +102,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <SymptomCheckerPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Telemedicine */}
+      <Route
+        path="/telemedicine"
+        element={
+          <ProtectedRoute>
+            <TelemedicineDashboardPage />
           </ProtectedRoute>
         }
       />

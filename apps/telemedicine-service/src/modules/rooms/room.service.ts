@@ -291,6 +291,28 @@ export async function getUsableRoomByIdForParticipants(
   return normalizedRoom;
 }
 
+/**
+ * Always creates a brand-new room for a consultation session.
+ * Each consultation gets its own room so chat history never bleeds
+ * across sessions for the same doctor-patient pair.
+ */
+export async function createFreshRoom(
+  doctorId: string,
+  patientId: string,
+  expirationHours?: number,
+): Promise<ConsultationRoomView> {
+  const hours = expirationHours ?? env.roomDefaultExpiryHours;
+  const roomData = await createUniqueRoomData(doctorId, patientId);
+  return createConsultationRoom(
+    {
+      doctorId,
+      patientId,
+      expiresAt: new Date(Date.now() + hours * 60 * 60 * 1000),
+    },
+    roomData,
+  );
+}
+
 export async function getOrCreateUsableRoomByParticipants(
   doctorId: string,
   patientId: string,
