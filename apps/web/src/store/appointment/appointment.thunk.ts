@@ -22,17 +22,20 @@ export const acceptAppointmentThunk = createAsyncThunk<Appointment, string, { re
 
       // For ONLINE appointments, eagerly create the telemedicine consultation
       // so it appears on the telemedicine dashboard immediately.
+      // Uses slotStartTime when available so the session reflects the actual slot.
       if (appointment.appointmentType === "ONLINE") {
         try {
           await createConsultation({
             appointmentId: appointment.id,
             patientId: appointment.patientId,
             doctorId: appointment.doctorId,
-            startsAt: new Date().toISOString(),
+            startsAt: appointment.slotStartTime ?? new Date().toISOString(),
             expirationHours: 2,
           });
-        } catch {
-          // Non-fatal — ConsultationPage will create it lazily if it doesn't exist
+        } catch (err: any) {
+          // Non-fatal — ConsultationPage will create it lazily if it doesn't exist.
+          // Log so developers can diagnose without silently hiding failures.
+          console.warn("[acceptAppointmentThunk] Could not create telemedicine consultation:", err?.response?.data ?? err?.message);
         }
       }
 

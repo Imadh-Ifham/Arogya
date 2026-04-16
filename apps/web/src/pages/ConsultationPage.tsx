@@ -233,15 +233,28 @@ export default function ConsultationPage() {
 
         if (consult) {
           setConsultation(consult);
-          const history = await fetchChatMessages(consult.room.id);
-          setMessages(history);
+
+          // Load chat history — non-fatal if it fails (e.g. participant ID mismatch
+          // or room not yet indexed). The page is still usable without history.
+          try {
+            const history = await fetchChatMessages(consult.room.id);
+            setMessages(history);
+          } catch {
+            // silent — socket will sync messages on connect
+          }
 
           if (consult.status === "ended" || role === "doctor") {
-            const noteList = await fetchClinicalNotes(consult.id);
-            setNotes(noteList);
+            try {
+              const noteList = await fetchClinicalNotes(consult.id);
+              setNotes(noteList);
+            } catch {
+              // silent — notes panel will show empty state
+            }
           }
         }
-      } catch {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[ConsultationPage] Bootstrap error:", msg, err);
         setPageError("Failed to load consultation. Please try again.");
       } finally {
         setLoading(false);

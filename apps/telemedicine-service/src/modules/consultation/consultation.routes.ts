@@ -4,6 +4,7 @@ import {
   getConsultationsByDoctorIdHandler,
   getConsultationsByPatientIdHandler,
   getConsultationByIdHandler,
+  getConsultationByAppointmentIdHandler,
   listConsultationsHandler,
   updateConsultationStatusHandler,
 } from "./consultation.controller.js";
@@ -16,6 +17,8 @@ consultationRouter.get(
   "/patient/:patientId",
   getConsultationsByPatientIdHandler,
 );
+// Lookup by appointmentId — avoids full list fetch + client-side filter
+consultationRouter.get("/by-appointment/:appointmentId", getConsultationByAppointmentIdHandler);
 consultationRouter.get("/:id", getConsultationByIdHandler);
 consultationRouter.post("/", createConsultationHandler);
 consultationRouter.patch("/:id/status", updateConsultationStatusHandler);

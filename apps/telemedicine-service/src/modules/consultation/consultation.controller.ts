@@ -4,6 +4,7 @@ import { HttpError } from "../../shared/http/error-handler.js";
 import {
   changeConsultationStatus,
   createConsultationSession,
+  getConsultationByAppointmentId,
   getConsultationById,
   getConsultations,
   getConsultationsByDoctorId,
@@ -61,9 +62,10 @@ export async function createConsultationHandler(
   }
 
   if (
-    typeof expirationHours !== "number" ||
-    !Number.isInteger(expirationHours) ||
-    expirationHours <= 0
+    expirationHours !== undefined &&
+    (typeof expirationHours !== "number" ||
+      !Number.isInteger(expirationHours) ||
+      expirationHours <= 0)
   ) {
     throw new HttpError(400, "expirationHours must be a positive integer");
   }
@@ -78,7 +80,7 @@ export async function createConsultationHandler(
     doctorId,
     startsAt: toDate(startsAt),
     roomId,
-    expirationHours,
+    expirationHours: expirationHours ?? 2,
   };
 
   const consultation = await createConsultationSession(payload);
@@ -122,6 +124,15 @@ export async function getConsultationsByPatientIdHandler(
   const patientId = requiredParam(req.params.patientId, "patientId");
   const consultations = await getConsultationsByPatientId(patientId);
   res.status(200).json({ success: true, data: consultations });
+}
+
+export async function getConsultationByAppointmentIdHandler(
+  req: Request,
+  res: Response<ApiResponse<ConsultationView | null>>,
+): Promise<void> {
+  const appointmentId = requiredParam(req.params.appointmentId, "appointmentId");
+  const consultation = await getConsultationByAppointmentId(appointmentId);
+  res.status(200).json({ success: true, data: consultation ?? null });
 }
 
 export async function updateConsultationStatusHandler(

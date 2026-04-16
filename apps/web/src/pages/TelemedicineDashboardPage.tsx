@@ -15,6 +15,7 @@ import {
   AlertCircle,
   ChevronRight,
   CalendarDays,
+  RefreshCw,
 } from "lucide-react";
 
 // ─── Status display config ─────────────────────────────────────────────────────
@@ -189,13 +190,7 @@ export default function TelemedicineDashboardPage() {
 
   const role: "doctor" | "patient" = user?.role === "doctor" ? "doctor" : "patient";
 
-  useEffect(() => {
-    const userId = user?._id;
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
+  const loadConsultations = (userId: string) => {
     setLoading(true);
     setError(null);
 
@@ -206,7 +201,6 @@ export default function TelemedicineDashboardPage() {
 
     fetch
       .then((data) => {
-        // Sort: active first, then by startsAt descending
         const sorted = [...data].sort((a, b) => {
           const statusRank = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
           if (statusRank !== 0) return statusRank;
@@ -216,7 +210,16 @@ export default function TelemedicineDashboardPage() {
       })
       .catch(() => setError("Failed to load consultations. Please try again."))
       .finally(() => setLoading(false));
-  }, [user?.id, role]);
+  };
+
+  useEffect(() => {
+    const userId = user?._id;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    loadConsultations(userId);
+  }, [user?._id, role]);
 
   // Group by status
   const grouped = STATUS_ORDER.reduce<Record<ConsultationStatus, ConsultationView[]>>(
@@ -246,13 +249,23 @@ export default function TelemedicineDashboardPage() {
             </p>
           </div>
 
-          {/* Active live badge */}
-          {grouped.active.length > 0 && (
-            <span className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-full">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              {grouped.active.length} Live
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Active live badge */}
+            {grouped.active.length > 0 && (
+              <span className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-full">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                {grouped.active.length} Live
+              </span>
+            )}
+            <button
+              onClick={() => user?._id && loadConsultations(user._id)}
+              disabled={loading}
+              title="Refresh consultations"
+              className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-40"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
 
         {/* Loading */}

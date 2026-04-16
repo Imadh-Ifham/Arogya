@@ -54,7 +54,7 @@ const generalLimiter = rateLimit({
 // 10 attempts per 15 minutes makes brute force computationally infeasible.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: process.env.NODE_ENV === "production" ? 10 : 100,
   message: {
     success: false,
     message: "Too many authentication attempts, please try again in 15 minutes",

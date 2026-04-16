@@ -144,6 +144,24 @@ export async function findConsultationById(
   return mapMeetingToView(consultation, room);
 }
 
+export async function findConsultationByAppointmentId(
+  appointmentId: string,
+): Promise<ConsultationView | null> {
+  const consultation = (await ConsultationModel.findOne({
+    appointmentId,
+  }).lean()) as ConsultationDocumentView | null;
+  if (!consultation) {
+    return null;
+  }
+
+  const room = await findConsultationRoomById(consultation.roomId.toString());
+  if (!room) {
+    return null;
+  }
+
+  return mapMeetingToView(consultation, room);
+}
+
 export async function updateConsultationStatus(
   id: string,
   status: ConsultationStatus,

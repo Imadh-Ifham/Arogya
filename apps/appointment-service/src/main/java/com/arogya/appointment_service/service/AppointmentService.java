@@ -234,6 +234,34 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.ACCEPTED);
         Appointment saved = appointmentRepository.save(appointment);
 
+        // For ONLINE appointments: ensure a telemedicine session exists so the
+        // consultation appears on the telemedicine dashboard immediately after approval.
+        // If a session was already created at booking time (meetingUrl present) this
+        // call is idempotent — the telemedicine service returns the existing URL.
+        if (saved.getAppointmentType() == AppointmentType.ONLINE) {
+            try {
+                String startsAt = null;
+                AppointmentSlot slot = slotRepository.findById(saved.getSlotId()).orElse(null);
+                if (slot != null && slot.getStartTime() != null) {
+                    startsAt = slot.getStartTime().toString();
+                }
+                String meetingUrl = telemedicineClient.createSession(
+                        saved.getId(), saved.getPatientId(), doctorId, startsAt);
+                if (saved.getMeetingUrl() == null || saved.getMeetingUrl().isBlank()) {
+                    saved.setMeetingUrl(meetingUrl);
+                    saved = appointmentRepository.save(saved);
+                }
+                log.info("Telemedicine session ensured for accepted appointment {} — url: {}",
+                        saved.getId(), meetingUrl);
+            } catch (RuntimeException e) {
+                // Non-fatal: approval succeeds even if telemedicine service is temporarily
+                // unavailable. The session will be created on-demand when the doctor opens
+                // the consultation page.
+                log.warn("Could not ensure telemedicine session for appointment {}: {}",
+                        saved.getId(), e.getMessage());
+            }
+        }
+
         notificationClient.sendAppointmentAccepted(saved.getId(), saved.getPatientId(), doctorId);
 
         return AppointmentResponse.from(saved);

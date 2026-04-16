@@ -1,6 +1,7 @@
 import { HttpError } from "../../shared/http/error-handler.js";
 import {
   createConsultation,
+  findConsultationByAppointmentId,
   findConsultationById,
   listConsultations,
   listConsultationsByDoctorId,
@@ -13,7 +14,6 @@ import type {
   CreateConsultationInput,
 } from "./consultation.types.js";
 import { logger } from "../../shared/logger.js";
-import { appointmentService } from "../../clients/appointment.client.js";
 import {
   assertRoomIsUsable,
   createFreshRoom,
@@ -29,7 +29,16 @@ function isDoctorInitiator(actor: string): boolean {
 export async function createConsultationSession(
   input: CreateConsultationInput,
 ): Promise<ConsultationView> {
-  // await appointmentService.ensureAppointmentExists(input.appointmentId);
+  // Idempotency: if a consultation already exists for this appointment return it
+  // rather than throwing a duplicate-key error from MongoDB.
+  const existing = await findConsultationByAppointmentId(input.appointmentId);
+  if (existing) {
+    logger.info(
+      { appointmentId: input.appointmentId, consultationId: existing.id },
+      "Consultation already exists for appointment — returning existing",
+    );
+    return existing;
+  }
 
   const room = input.roomId
     ? await getUsableRoomByIdForParticipants(
@@ -49,20 +58,47 @@ export async function createConsultationSession(
     input.expirationHours,
   );
 
-  const consultation = await createConsultation(input, roomWithRefreshedExpiry);
-  logger.info(
-    {
-      consultationId: consultation.id,
-      roomId: consultation.room.id,
-      roomKey: consultation.room.roomKey,
-      appointmentId: input.appointmentId,
-      patientId: input.patientId,
-      doctorId: input.doctorId,
-    },
-    "Consultation and room successfully created",
-  );
+  try {
+    const consultation = await createConsultation(input, roomWithRefreshedExpiry);
+    logger.info(
+      {
+        consultationId: consultation.id,
+        roomId: consultation.room.id,
+        roomKey: consultation.room.roomKey,
+        appointmentId: input.appointmentId,
+        patientId: input.patientId,
+        doctorId: input.doctorId,
+      },
+      "Consultation and room successfully created",
+    );
+    return consultation;
+  } catch (err: unknown) {
+    // Handle MongoDB duplicate key error (code 11000) caused by a race condition
+    // where two concurrent requests both passed the idempotency check above and
+    // both attempted to insert. Recover by returning the existing consultation.
+    const isDuplicateKey =
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: unknown }).code === 11000;
 
-  return consultation;
+    if (isDuplicateKey) {
+      logger.warn(
+        { appointmentId: input.appointmentId },
+        "Duplicate key on consultation insert (race condition) — returning existing",
+      );
+      const recovered = await findConsultationByAppointmentId(input.appointmentId);
+      if (recovered) return recovered;
+    }
+
+    throw err;
+  }
+}
+
+export async function getConsultationByAppointmentId(
+  appointmentId: string,
+): Promise<ConsultationView | null> {
+  return findConsultationByAppointmentId(appointmentId);
 }
 
 export async function getConsultationById(
