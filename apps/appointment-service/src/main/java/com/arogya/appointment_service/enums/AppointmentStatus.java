@@ -15,5 +15,7 @@ public enum AppointmentStatus {
     REJECTED,
     CANCELLED,
     COMPLETED,
-    NO_SHOW
+    NO_SHOW,
+    /** Appointment date has passed without the doctor approving or rejecting it. */
+    EXPIRED
 }

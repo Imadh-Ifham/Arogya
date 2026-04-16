@@ -10,7 +10,8 @@ export type AppointmentStatus =
   | "CONFIRMED"
   | "CANCELLED"
   | "COMPLETED"
-  | "NO_SHOW";
+  | "NO_SHOW"
+  | "EXPIRED";
 export type AppointmentType = "PHYSICAL" | "ONLINE";
 
 export interface Slot {
@@ -79,6 +80,11 @@ export async function fetchMyAppointments(): Promise<Appointment[]> {
 export async function fetchAppointment(id: string): Promise<Appointment> {
   const { data } = await api.get(`/appointments/${id}`);
   return data as Appointment;
+}
+
+export async function fetchAppointmentStatus(id: string): Promise<{ appointmentId: string; status: AppointmentStatus }> {
+  const { data } = await api.get(`/appointments/${id}/status`);
+  return data as { appointmentId: string; status: AppointmentStatus };
 }
 
 export async function cancelAppointment(id: string, cancellationReason?: string): Promise<Appointment> {

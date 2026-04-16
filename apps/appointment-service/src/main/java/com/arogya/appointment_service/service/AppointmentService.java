@@ -22,6 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.scheduling.annotation.Scheduled;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -462,6 +465,39 @@ public class AppointmentService {
 
         appointment.setStatus(AppointmentStatus.COMPLETED);
         return AppointmentResponse.from(appointmentRepository.save(appointment));
+    }
+
+    // =========================================================================
+    // Expiry: PHYSICAL appointments whose slot date has passed without doctor action
+    // =========================================================================
+
+    /**
+     * Runs every 15 minutes. Marks PHYSICAL appointments as EXPIRED if:
+     * - Status is PAYMENT_COMPLETED (doctor never acted), AND
+     * - The appointment slot start time is in the past.
+     *
+     * ONLINE appointments are excluded — their lifecycle is managed differently
+     * through the telemedicine service.
+     */
+    @Scheduled(fixedRate = 15 * 60 * 1000)
+    @Transactional
+    public void expireStalePhysicalAppointments() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Appointment> stale = appointmentRepository
+                .findPhysicalAppointmentsPastSlotWithStatus(AppointmentType.PHYSICAL, AppointmentStatus.PAYMENT_COMPLETED, now);
+
+        if (stale.isEmpty()) return;
+
+        for (Appointment appointment : stale) {
+            appointment.setStatus(AppointmentStatus.EXPIRED);
+            // Release the slot so other patients can book it
+            slotRepository.findById(appointment.getSlotId()).ifPresent(slot -> {
+                slot.setStatus(SlotStatus.AVAILABLE);
+                slotRepository.save(slot);
+            });
+            appointmentRepository.save(appointment);
+            log.info("Appointment {} marked EXPIRED — slot time passed without doctor action", appointment.getId());
+        }
     }
 
     // =========================================================================
