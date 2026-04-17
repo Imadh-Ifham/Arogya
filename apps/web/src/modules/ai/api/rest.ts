@@ -36,6 +36,7 @@ export interface AnalyzeResponse {
   disclaimer: string;
   processingTimeMs: number;
   createdAt: string;
+  status: "completed" | "partial";
 }
 
 export async function analyzeSymptoms(input: SymptomInput): Promise<AnalyzeResponse> {

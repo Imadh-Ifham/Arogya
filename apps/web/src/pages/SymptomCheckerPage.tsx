@@ -242,6 +242,17 @@ export default function SymptomCheckerPage() {
               <p className="text-lg font-bold capitalize">{result.urgencyLevel}</p>
             </div>
 
+            {/* AI unavailable notice */}
+            {result.status === "partial" && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+                <p className="text-sm font-semibold text-amber-700 mb-1">AI analysis unavailable</p>
+                <p className="text-xs text-amber-600">
+                  The AI service could not process your symptoms at this time. The results below are
+                  generic defaults — please consult a healthcare provider directly.
+                </p>
+              </div>
+            )}
+
             {/* Warning flags */}
             {result.warningFlags.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4">

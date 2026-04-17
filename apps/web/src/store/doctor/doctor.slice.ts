@@ -73,6 +73,7 @@ const doctorSlice = createSlice({
       .addCase(fetchDoctors.pending, (state) => {
         state.loading = "pending";
         state.error = null;
+        state.items = [];
       })
       .addCase(fetchDoctors.fulfilled, (state, action) => {
         state.loading = "succeeded";

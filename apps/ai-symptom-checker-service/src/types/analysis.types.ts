@@ -54,6 +54,7 @@ export interface AnalyzeResponse {
   disclaimer: string;
   processingTimeMs: number;
   createdAt: string;
+  status: "completed" | "partial";
 }
 
 export interface PaginatedHistory {
