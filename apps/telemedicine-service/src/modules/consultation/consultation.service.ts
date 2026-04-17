@@ -13,7 +13,6 @@ import type {
   CreateConsultationInput,
 } from "./consultation.types.js";
 import { logger } from "../../shared/logger.js";
-import { appointmentService } from "../../clients/appointment.client.js";
 import {
   assertRoomIsUsable,
   createFreshRoom,
@@ -29,8 +28,6 @@ function isDoctorInitiator(actor: string): boolean {
 export async function createConsultationSession(
   input: CreateConsultationInput,
 ): Promise<ConsultationView> {
-  // await appointmentService.ensureAppointmentExists(input.appointmentId);
-
   const room = input.roomId
     ? await getUsableRoomByIdForParticipants(
         input.roomId,

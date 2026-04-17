@@ -180,16 +180,38 @@ export async function getRoomById(id: string): Promise<ConsultationRoomView> {
 
 export async function getRoomsByDoctorId(
   doctorId: string,
+  options?: { activeOnly?: boolean },
 ): Promise<ConsultationRoomView[]> {
   const rooms = await listConsultationRoomsByDoctorId(doctorId);
-  return Promise.all(rooms.map((room) => markRoomAsExpiredIfNeeded(room)));
+  const normalizedRooms = await Promise.all(
+    rooms.map((room) => markRoomAsExpiredIfNeeded(room)),
+  );
+
+  if (options?.activeOnly) {
+    return normalizedRooms.filter(
+      (room) => room.status === "open" && room.expiresAt.getTime() > Date.now(),
+    );
+  }
+
+  return normalizedRooms;
 }
 
 export async function getRoomsByPatientId(
   patientId: string,
+  options?: { activeOnly?: boolean },
 ): Promise<ConsultationRoomView[]> {
   const rooms = await listConsultationRoomsByPatientId(patientId);
-  return Promise.all(rooms.map((room) => markRoomAsExpiredIfNeeded(room)));
+  const normalizedRooms = await Promise.all(
+    rooms.map((room) => markRoomAsExpiredIfNeeded(room)),
+  );
+
+  if (options?.activeOnly) {
+    return normalizedRooms.filter(
+      (room) => room.status === "open" && room.expiresAt.getTime() > Date.now(),
+    );
+  }
+
+  return normalizedRooms;
 }
 
 export async function closeRoomById(
@@ -292,9 +314,9 @@ export async function getUsableRoomByIdForParticipants(
 }
 
 /**
- * Always creates a brand-new room for a consultation session.
- * Each consultation gets its own room so chat history never bleeds
- * across sessions for the same doctor-patient pair.
+ * Creates a usable room for a consultation session.
+ * Because the data model enforces a unique room per doctor-patient pair,
+ * we reuse the existing room when present and only create a new one when absent.
  */
 export async function createFreshRoom(
   doctorId: string,
@@ -302,6 +324,30 @@ export async function createFreshRoom(
   expirationHours?: number,
 ): Promise<ConsultationRoomView> {
   const hours = expirationHours ?? env.roomDefaultExpiryHours;
+  const existing = await findConsultationRoomByParticipants(
+    doctorId,
+    patientId,
+  );
+
+  if (existing) {
+    const normalizedRoom = await markRoomAsExpiredIfNeeded(existing);
+
+    if (normalizedRoom.status === "closed") {
+      throw new HttpError(409, "Room is closed. Reopen it before scheduling");
+    }
+
+    const refreshed = await updateConsultationRoom(normalizedRoom.id, {
+      status: "open",
+      expiresAt: new Date(Date.now() + hours * 60 * 60 * 1000),
+    });
+
+    if (!refreshed) {
+      throw new HttpError(500, "Failed to refresh room expiration");
+    }
+
+    return ensureRoomIsJitsiReady(refreshed);
+  }
+
   const roomData = await createUniqueRoomData(doctorId, patientId);
   return createConsultationRoom(
     {

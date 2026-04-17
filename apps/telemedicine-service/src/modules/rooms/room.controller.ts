@@ -90,7 +90,8 @@ export async function getRoomsByDoctorIdHandler(
   res: Response<ApiResponse<ConsultationRoomView[]>>,
 ): Promise<void> {
   const doctorId = requiredParam(req.params.doctorId, "doctorId");
-  const rooms = await getRoomsByDoctorId(doctorId);
+  const activeOnly = req.query.activeOnly === "true";
+  const rooms = await getRoomsByDoctorId(doctorId, { activeOnly });
   res.status(200).json({ success: true, data: rooms });
 }
 
@@ -99,7 +100,8 @@ export async function getRoomsByPatientIdHandler(
   res: Response<ApiResponse<ConsultationRoomView[]>>,
 ): Promise<void> {
   const patientId = requiredParam(req.params.patientId, "patientId");
-  const rooms = await getRoomsByPatientId(patientId);
+  const activeOnly = req.query.activeOnly === "true";
+  const rooms = await getRoomsByPatientId(patientId, { activeOnly });
   res.status(200).json({ success: true, data: rooms });
 }
 

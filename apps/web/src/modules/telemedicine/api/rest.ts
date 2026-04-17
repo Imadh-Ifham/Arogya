@@ -1,4 +1,4 @@
-import api from "../../../lib/api";
+import api from "../../../lib/telemedicineApi";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -89,6 +89,24 @@ export interface ClinicalNote {
   updatedAt: string;
 }
 
+export interface TelemedicineActorContext {
+  id: string;
+  role: ChatRole;
+}
+
+function actorHeaders(
+  actor?: TelemedicineActorContext,
+): Record<string, string> | undefined {
+  if (!actor) {
+    return undefined;
+  }
+
+  return {
+    "x-user-id": actor.id,
+    "x-user-role": actor.role,
+  };
+}
+
 // ─── Consultation endpoints ───────────────────────────────────────────────────
 
 export async function createConsultation(payload: {
@@ -105,14 +123,56 @@ export async function createConsultation(payload: {
   return (data.data ?? data) as ConsultationView;
 }
 
-export async function fetchDoctorConsultations(doctorId: string): Promise<ConsultationView[]> {
-  const { data } = await api.get(`/telemedicine/consultations/doctor/${doctorId}`);
+export async function fetchDoctorConsultations(
+  doctorId: string,
+): Promise<ConsultationView[]> {
+  const { data } = await api.get(
+    `/telemedicine/consultations/doctor/${doctorId}`,
+  );
   return (data.data ?? data) as ConsultationView[];
 }
 
-export async function fetchPatientConsultations(patientId: string): Promise<ConsultationView[]> {
-  const { data } = await api.get(`/telemedicine/consultations/patient/${patientId}`);
+export async function fetchPatientConsultations(
+  patientId: string,
+): Promise<ConsultationView[]> {
+  const { data } = await api.get(
+    `/telemedicine/consultations/patient/${patientId}`,
+  );
   return (data.data ?? data) as ConsultationView[];
+}
+
+export async function fetchDoctorRooms(
+  doctorId: string,
+  activeOnly = true,
+): Promise<ConsultationRoom[]> {
+  const { data } = await api.get(`/telemedicine/rooms/doctor/${doctorId}`, {
+    params: { activeOnly },
+  });
+  return (data.data ?? data) as ConsultationRoom[];
+}
+
+export async function fetchRoomById(roomId: string): Promise<ConsultationRoom> {
+  const { data } = await api.get(`/telemedicine/rooms/${roomId}`);
+  return (data.data ?? data) as ConsultationRoom;
+}
+
+export async function fetchPatientRooms(
+  patientId: string,
+  activeOnly = true,
+): Promise<ConsultationRoom[]> {
+  const { data } = await api.get(`/telemedicine/rooms/patient/${patientId}`, {
+    params: { activeOnly },
+  });
+  return (data.data ?? data) as ConsultationRoom[];
+}
+
+export async function fetchConsultationById(
+  consultationId: string,
+): Promise<ConsultationView> {
+  const { data } = await api.get(
+    `/telemedicine/consultations/${consultationId}`,
+  );
+  return (data.data ?? data) as ConsultationView;
 }
 
 export async function fetchConsultationByAppointment(
@@ -146,10 +206,17 @@ export async function fetchChatMessages(
   roomId: string,
   before?: string,
   limit = 50,
+  actor?: TelemedicineActorContext,
 ): Promise<ChatMessage[]> {
   const params: Record<string, string | number> = { limit };
   if (before) params.before = before;
-  const { data } = await api.get(`/telemedicine/chats/rooms/${roomId}/messages`, { params });
+  const { data } = await api.get(
+    `/telemedicine/chats/rooms/${roomId}/messages`,
+    {
+      params,
+      headers: actorHeaders(actor),
+    },
+  );
   return (data.data ?? data) as ChatMessage[];
 }
 
@@ -157,12 +224,22 @@ export async function sendChatMessageRest(
   roomId: string,
   content: string,
   triageTags?: ChatTriageTag[],
+  actor?: TelemedicineActorContext,
 ): Promise<{ message: ChatMessage; escalationGuidance?: string }> {
-  const { data } = await api.post(`/telemedicine/chats/rooms/${roomId}/messages`, {
-    content,
-    triageTags,
-  });
-  return (data.data ?? data) as { message: ChatMessage; escalationGuidance?: string };
+  const { data } = await api.post(
+    `/telemedicine/chats/rooms/${roomId}/messages`,
+    {
+      content,
+      triageTags,
+    },
+    {
+      headers: actorHeaders(actor),
+    },
+  );
+  return (data.data ?? data) as {
+    message: ChatMessage;
+    escalationGuidance?: string;
+  };
 }
 
 // ─── Clinical Notes ───────────────────────────────────────────────────────────
@@ -170,27 +247,47 @@ export async function sendChatMessageRest(
 export async function createClinicalNote(
   consultationId: string,
   payload: { soap: SoapNote; patientSummary?: string; status?: NoteStatus },
+  actor?: TelemedicineActorContext,
 ): Promise<ClinicalNote> {
   const { data } = await api.post(
     `/telemedicine/consultations/${consultationId}/notes`,
     payload,
+    {
+      headers: actorHeaders(actor),
+    },
   );
   return (data.data ?? data) as ClinicalNote;
 }
 
-export async function fetchClinicalNotes(consultationId: string): Promise<ClinicalNote[]> {
-  const { data } = await api.get(`/telemedicine/consultations/${consultationId}/notes`);
+export async function fetchClinicalNotes(
+  consultationId: string,
+  actor?: TelemedicineActorContext,
+): Promise<ClinicalNote[]> {
+  const { data } = await api.get(
+    `/telemedicine/consultations/${consultationId}/notes`,
+    {
+      headers: actorHeaders(actor),
+    },
+  );
   return (data.data ?? data) as ClinicalNote[];
 }
 
 export async function updateClinicalNote(
   consultationId: string,
   noteId: string,
-  payload: { soap?: Partial<SoapNote>; patientSummary?: string; status?: NoteStatus },
+  payload: {
+    soap?: Partial<SoapNote>;
+    patientSummary?: string;
+    status?: NoteStatus;
+  },
+  actor?: TelemedicineActorContext,
 ): Promise<ClinicalNote> {
   const { data } = await api.patch(
     `/telemedicine/consultations/${consultationId}/notes/${noteId}`,
     payload,
+    {
+      headers: actorHeaders(actor),
+    },
   );
   return (data.data ?? data) as ClinicalNote;
 }
@@ -198,9 +295,14 @@ export async function updateClinicalNote(
 export async function releaseClinicalNote(
   consultationId: string,
   noteId: string,
+  actor?: TelemedicineActorContext,
 ): Promise<ClinicalNote> {
   const { data } = await api.patch(
     `/telemedicine/consultations/${consultationId}/notes/${noteId}/release`,
+    {},
+    {
+      headers: actorHeaders(actor),
+    },
   );
   return (data.data ?? data) as ClinicalNote;
 }

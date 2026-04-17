@@ -5,20 +5,20 @@ import type { ChatMessage } from "./rest";
 // In dev: Vite proxies /socket.io → localhost:8086
 // In Docker/prod: connect directly to the exposed port via env var
 const WS_URL =
-  (import.meta as Record<string, unknown> & { env?: Record<string, string> }).env
+  (import.meta as unknown as { env?: Record<string, string> }).env
     ?.VITE_TELEMEDICINE_WS_URL ?? "";
 
 // ─── Socket.IO event names ────────────────────────────────────────────────────
 export const CHAT_EVENTS = {
-  JOIN:           "chat:room.join",
-  SEND:           "chat:message.send",
-  EDIT:           "chat:message.edit",
-  DELETE:         "chat:message.delete",
-  NEW:            "chat:message.new",
-  UPDATED:        "chat:message.updated",
-  DELETED:        "chat:message.deleted",
+  JOIN: "chat:room.join",
+  SEND: "chat:message.send",
+  EDIT: "chat:message.edit",
+  DELETE: "chat:message.delete",
+  NEW: "chat:message.new",
+  UPDATED: "chat:message.updated",
+  DELETED: "chat:message.deleted",
   SAFETY_FLAGGED: "chat:safety.flagged",
-  ERROR:          "chat:error",
+  ERROR: "chat:error",
 } as const;
 
 export type ChatSocketEventResult = {

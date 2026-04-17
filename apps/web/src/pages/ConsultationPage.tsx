@@ -1,12 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useAppSelector, useAppDispatch } from "../app/hooks";
-import { fetchAppointment } from "../modules/appointment/api/rest";
-import { completeAppointmentThunk } from "../store/appointment/appointment.thunk";
-import type { Appointment } from "../modules/appointment/api/rest";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import {
-  fetchConsultationByAppointment,
-  createConsultation,
+  fetchConsultationById,
   updateConsultationStatus,
   fetchChatMessages,
   sendChatMessageRest,
@@ -26,10 +21,12 @@ import {
   getSocket,
   disconnectSocket,
   joinChatRoom,
-  emitChatMessage,
   CHAT_EVENTS,
 } from "../modules/telemedicine/api/socket";
-import type { ChatSocketEventResult, SafetyFlagEvent } from "../modules/telemedicine/api/socket";
+import type {
+  ChatSocketEventResult,
+  SafetyFlagEvent,
+} from "../modules/telemedicine/api/socket";
 import {
   ArrowLeft,
   Video,
@@ -59,23 +56,23 @@ type ActivePanel = "chat" | "notes";
 
 const STATUS_COLOR: Record<ConsultationStatus, string> = {
   scheduled: "bg-amber-100 text-amber-700 border-amber-200",
-  active:    "bg-green-100 text-green-700 border-green-200",
-  ended:     "bg-gray-100  text-gray-600  border-gray-200",
+  active: "bg-green-100 text-green-700 border-green-200",
+  ended: "bg-gray-100  text-gray-600  border-gray-200",
   cancelled: "bg-red-100   text-red-600   border-red-200",
 };
 
 const STATUS_LABEL: Record<ConsultationStatus, string> = {
   scheduled: "Scheduled",
-  active:    "In Progress",
-  ended:     "Ended",
+  active: "In Progress",
+  ended: "Ended",
   cancelled: "Cancelled",
 };
 
 const CONN_CONFIG: Record<ConnectionStatus, { dot: string; label: string }> = {
-  connecting:   { dot: "bg-amber-400 animate-pulse", label: "Connecting…" },
-  connected:    { dot: "bg-green-500",               label: "Connected" },
+  connecting: { dot: "bg-amber-400 animate-pulse", label: "Connecting…" },
+  connected: { dot: "bg-green-500", label: "Connected" },
   reconnecting: { dot: "bg-orange-400 animate-pulse", label: "Reconnecting…" },
-  offline:      { dot: "bg-red-500",                 label: "Offline" },
+  offline: { dot: "bg-red-500", label: "Offline" },
 };
 
 // ─── Empty SOAP template ──────────────────────────────────────────────────────
@@ -89,7 +86,10 @@ const EMPTY_SOAP: SoapNote = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function timeLabel(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function dateLabel(iso: string) {
@@ -98,7 +98,13 @@ function dateLabel(iso: string) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function ConsentCheckpoint({ onAccept, role }: { onAccept: () => void; role: "doctor" | "patient" }) {
+function ConsentCheckpoint({
+  onAccept,
+  role,
+}: {
+  onAccept: () => void;
+  role: "doctor" | "patient";
+}) {
   return (
     <div className="flex h-full items-center justify-center p-6 bg-background">
       <div className="max-w-sm w-full bg-card border border-border rounded-2xl p-6 space-y-5 shadow-sm">
@@ -107,36 +113,55 @@ function ConsentCheckpoint({ onAccept, role }: { onAccept: () => void; role: "do
             <Shield className="w-5 h-5 text-teal-600" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-foreground">Before you join</h2>
-            <p className="text-xs text-muted-foreground">Review and acknowledge the terms</p>
+            <h2 className="text-base font-semibold text-foreground">
+              Before you join
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Review and acknowledge the terms
+            </p>
           </div>
         </div>
 
         <ul className="space-y-2 text-sm text-foreground">
           <li className="flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
-            <span>This consultation is private and secure. Audio and video are not recorded by the platform.</span>
+            <span>
+              This consultation is private and secure. Audio and video are not
+              recorded by the platform.
+            </span>
           </li>
           {role === "doctor" ? (
             <>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
-                <span>Clinical notes you write remain confidential until you release them to the patient.</span>
+                <span>
+                  Clinical notes you write remain confidential until you release
+                  them to the patient.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
-                <span>Only start the session when both you and the patient are ready.</span>
+                <span>
+                  Only start the session when both you and the patient are
+                  ready.
+                </span>
               </li>
             </>
           ) : (
             <>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
-                <span>Your health data shared during this session is protected under our Privacy Policy.</span>
+                <span>
+                  Your health data shared during this session is protected under
+                  our Privacy Policy.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
-                <span>If you experience a medical emergency, call emergency services immediately.</span>
+                <span>
+                  If you experience a medical emergency, call emergency services
+                  immediately.
+                </span>
               </li>
             </>
           )}
@@ -157,16 +182,18 @@ function ConsentCheckpoint({ onAccept, role }: { onAccept: () => void; role: "do
 
 export default function ConsultationPage() {
   const { id } = useParams<{ id: string }>();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const { user } = useAppSelector((s) => s.auth);
 
-  const role = user?.role === "doctor" ? "doctor" : "patient";
-  const userId = user?._id ?? "";
+  const role: "doctor" | "patient" = pathname.startsWith("/doctor/")
+    ? "doctor"
+    : "patient";
+  const userId = role === "doctor" ? "1111111111" : "2222222222";
 
   // ── Page bootstrap state
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [consultation, setConsultation] = useState<ConsultationView | null>(null);
+  const [consultation, setConsultation] = useState<ConsultationView | null>(
+    null,
+  );
   const [pageError, setPageError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -203,43 +230,24 @@ export default function ConsultationPage() {
 
     (async () => {
       try {
-        const apt = await fetchAppointment(id);
+        const consult = await fetchConsultationById(id);
 
-        if (apt.appointmentType !== "ONLINE") {
-          setPageError("This appointment is not an online consultation.");
+        if (
+          (role === "doctor" && consult.doctorId !== userId) ||
+          (role === "patient" && consult.patientId !== userId)
+        ) {
+          setPageError("You are not a participant in this consultation.");
           setLoading(false);
           return;
         }
-        if (apt.status !== "ACCEPTED" && apt.status !== "CONFIRMED") {
-          setPageError(
-            `Consultation not available yet. Appointment status: ${apt.status}. The doctor must accept the appointment first.`,
-          );
-          setLoading(false);
-          return;
-        }
-        setAppointment(apt);
 
-        let consult = await fetchConsultationByAppointment(id, role, userId);
+        setConsultation(consult);
+        const history = await fetchChatMessages(consult.room.id);
+        setMessages(history);
 
-        if (!consult && role === "doctor") {
-          consult = await createConsultation({
-            appointmentId: id,
-            patientId: apt.patientId,
-            doctorId: apt.doctorId,
-            startsAt: new Date().toISOString(),
-            expirationHours: 2,
-          });
-        }
-
-        if (consult) {
-          setConsultation(consult);
-          const history = await fetchChatMessages(consult.room.id);
-          setMessages(history);
-
-          if (consult.status === "ended" || role === "doctor") {
-            const noteList = await fetchClinicalNotes(consult.id);
-            setNotes(noteList);
-          }
+        if (consult.status === "ended" || role === "doctor") {
+          const noteList = await fetchClinicalNotes(consult.id);
+          setNotes(noteList);
         }
       } catch {
         setPageError("Failed to load consultation. Please try again.");
@@ -248,26 +256,6 @@ export default function ConsultationPage() {
       }
     })();
   }, [id, userId, role]);
-
-  // ─── Patient polling (waiting for doctor to create the session) ──────────
-  useEffect(() => {
-    // Only poll when: patient, consent given, no consultation yet, page loaded
-    if (role !== "patient" || !consentGiven || consultation || loading || !id || !userId) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const consult = await fetchConsultationByAppointment(id, role, userId);
-        if (consult) {
-          setConsultation(consult);
-          const history = await fetchChatMessages(consult.room.id);
-          setMessages(history);
-          clearInterval(interval);
-        }
-      } catch { /* silent */ }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [role, consentGiven, consultation, loading, id, userId]);
 
   // ─── Socket.IO ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -281,8 +269,13 @@ export default function ConsultationPage() {
       joinChatRoom(
         socket,
         consultation.room.id,
-        () => { roomJoinedRef.current = true; setRoomJoinError(null); },
-        (msg) => { setRoomJoinError(msg); },
+        () => {
+          roomJoinedRef.current = true;
+          setRoomJoinError(null);
+        },
+        (msg) => {
+          setRoomJoinError(msg);
+        },
       );
     };
 
@@ -292,7 +285,10 @@ export default function ConsultationPage() {
       joinRoom();
     };
 
-    const onDisconnect = () => { roomJoinedRef.current = false; setConnection("offline"); };
+    const onDisconnect = () => {
+      roomJoinedRef.current = false;
+      setConnection("offline");
+    };
 
     const onReconnectAttempt = (attempt: number) => {
       setConnection("reconnecting");
@@ -304,7 +300,9 @@ export default function ConsultationPage() {
       setReconnectAttempts(0);
       // Re-join room and pull any missed messages
       joinRoom();
-      fetchChatMessages(consultation.room.id).then(setMessages).catch(() => null);
+      fetchChatMessages(consultation.room.id)
+        .then(setMessages)
+        .catch(() => null);
     };
 
     const onNewMessage = (payload: ChatSocketEventResult) => {
@@ -357,7 +355,9 @@ export default function ConsultationPage() {
   // before the workspace effect has a chance to attach its listeners.
   useEffect(() => {
     if (!consentGiven) return;
-    return () => { disconnectSocket(); };
+    return () => {
+      disconnectSocket();
+    };
   }, [consentGiven]);
 
   // Auto-scroll chat
@@ -378,13 +378,17 @@ export default function ConsultationPage() {
       socketRef.current.emit(
         "chat:message.send",
         { roomId: consultation.room.id, message: { content } },
-        (ack: { success: boolean; data?: { message: ChatMessage; escalationGuidance?: string } }) => {
+        (ack: {
+          success: boolean;
+          data?: { message: ChatMessage; escalationGuidance?: string };
+        }) => {
           if (ack?.success && ack.data) {
             setMessages((prev) => {
               if (prev.find((m) => m.id === ack.data!.message.id)) return prev;
               return [...prev, ack.data!.message];
             });
-            if (ack.data.escalationGuidance) setEscalation(ack.data.escalationGuidance);
+            if (ack.data.escalationGuidance)
+              setEscalation(ack.data.escalationGuidance);
           }
         },
       );
@@ -397,7 +401,9 @@ export default function ConsultationPage() {
           return [...prev, result.message];
         });
         if (result.escalationGuidance) setEscalation(result.escalationGuidance);
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     }
   }, [chatInput, consultation]);
 
@@ -405,21 +411,23 @@ export default function ConsultationPage() {
     async (status: ConsultationStatus) => {
       if (!consultation) return;
       try {
-        const updated = await updateConsultationStatus(consultation.id, status, role);
+        const updated = await updateConsultationStatus(
+          consultation.id,
+          status,
+          role,
+        );
         setConsultation(updated);
         if (status === "ended") {
-          // Mark the linked appointment as COMPLETED in the appointment service
-          if (id) {
-            dispatch(completeAppointmentThunk(id));
-          }
           if (role === "doctor") {
             const noteList = await fetchClinicalNotes(consultation.id);
             setNotes(noteList);
           }
         }
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     },
-    [consultation, role, id, dispatch],
+    [consultation, role],
   );
 
   const handleSaveNote = useCallback(async () => {
@@ -428,11 +436,17 @@ export default function ConsultationPage() {
     setNoteError(null);
     try {
       if (editingNoteId) {
-        const updated = await updateClinicalNote(consultation.id, editingNoteId, {
-          soap: noteSoap,
-          patientSummary: notePatientSummary,
-        });
-        setNotes((prev) => prev.map((n) => (n.id === editingNoteId ? updated : n)));
+        const updated = await updateClinicalNote(
+          consultation.id,
+          editingNoteId,
+          {
+            soap: noteSoap,
+            patientSummary: notePatientSummary,
+          },
+        );
+        setNotes((prev) =>
+          prev.map((n) => (n.id === editingNoteId ? updated : n)),
+        );
       } else {
         const created = await createClinicalNote(consultation.id, {
           soap: noteSoap,
@@ -455,9 +469,13 @@ export default function ConsultationPage() {
     async (noteId: string) => {
       if (!consultation) return;
       try {
-        const updated = await updateClinicalNote(consultation.id, noteId, { status: "final" });
+        const updated = await updateClinicalNote(consultation.id, noteId, {
+          status: "final",
+        });
         setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)));
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     },
     [consultation],
   );
@@ -468,7 +486,9 @@ export default function ConsultationPage() {
       try {
         const updated = await releaseClinicalNote(consultation.id, noteId);
         setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)));
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     },
     [consultation],
   );
@@ -480,7 +500,9 @@ export default function ConsultationPage() {
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center space-y-3">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-muted-foreground">Setting up your consultation…</p>
+          <p className="text-sm text-muted-foreground">
+            Setting up your consultation…
+          </p>
         </div>
       </div>
     );
@@ -507,8 +529,6 @@ export default function ConsultationPage() {
     );
   }
 
-  if (!appointment) return null;
-
   // ── Consent gate (shown after page loads, before workspace)
   if (!consentGiven) {
     return (
@@ -521,7 +541,9 @@ export default function ConsultationPage() {
           >
             <ArrowLeft className="w-4 h-4" /> Back
           </button>
-          <span className="text-sm font-semibold text-foreground">Video Consultation</span>
+          <span className="text-sm font-semibold text-foreground">
+            Video Consultation
+          </span>
         </div>
         <ConsentCheckpoint onAccept={() => setConsentGiven(true)} role={role} />
       </div>
@@ -540,7 +562,6 @@ export default function ConsultationPage() {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-
       {/* ── Top bar ───────────────────────────────────────────────────────── */}
       <div className="shrink-0 bg-card border-b border-border px-4 py-2.5 flex items-center justify-between gap-3">
         <button
@@ -555,7 +576,9 @@ export default function ConsultationPage() {
             Video Consultation
           </span>
           {consultation && (
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full border capitalize ${STATUS_COLOR[consultStatus]}`}>
+            <span
+              className={`text-xs font-medium px-2 py-0.5 rounded-full border capitalize ${STATUS_COLOR[consultStatus]}`}
+            >
               {STATUS_LABEL[consultStatus]}
             </span>
           )}
@@ -568,18 +591,24 @@ export default function ConsultationPage() {
             title={showVideo ? "Hide video" : "Show video"}
             className="p-1.5 text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-secondary transition-colors"
           >
-            {showVideo ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+            {showVideo ? (
+              <VideoOff className="w-4 h-4" />
+            ) : (
+              <Video className="w-4 h-4" />
+            )}
           </button>
 
           {/* Doctor: Start session */}
-          {role === "doctor" && consultation && consultStatus === "scheduled" && (
-            <button
-              onClick={() => handleStatusChange("active")}
-              className="flex items-center gap-1.5 text-xs bg-green-600 text-white rounded-lg px-3 py-1.5 hover:bg-green-700 transition-colors font-medium"
-            >
-              <Play className="w-3.5 h-3.5" /> Start Session
-            </button>
-          )}
+          {role === "doctor" &&
+            consultation &&
+            consultStatus === "scheduled" && (
+              <button
+                onClick={() => handleStatusChange("active")}
+                className="flex items-center gap-1.5 text-xs bg-green-600 text-white rounded-lg px-3 py-1.5 hover:bg-green-700 transition-colors font-medium"
+              >
+                <Play className="w-3.5 h-3.5" /> Start Session
+              </button>
+            )}
 
           {/* Doctor: End session */}
           {role === "doctor" && consultation && consultStatus === "active" && (
@@ -593,15 +622,15 @@ export default function ConsultationPage() {
 
           {/* Open in new tab */}
           {consultation?.room.jitsiRoomUrl && (
-          <a
-            href={consultation.room.jitsiRoomUrl}
-            target="_blank"
-            rel="noreferrer"
-            title="Open Jitsi in new tab"
-            className="p-1.5 text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-secondary transition-colors hidden sm:flex"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
+            <a
+              href={consultation.room.jitsiRoomUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Open Jitsi in new tab"
+              className="p-1.5 text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-secondary transition-colors hidden sm:flex"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
           )}
         </div>
       </div>
@@ -622,7 +651,9 @@ export default function ConsultationPage() {
       {roomJoinError && (
         <div className="shrink-0 bg-red-50 border-b border-red-200 px-4 py-2 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-          <p className="text-sm text-red-700 font-medium">Chat unavailable: {roomJoinError}</p>
+          <p className="text-sm text-red-700 font-medium">
+            Chat unavailable: {roomJoinError}
+          </p>
         </div>
       )}
 
@@ -673,7 +704,6 @@ export default function ConsultationPage() {
 
       {/* ── Main workspace ───────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-
         {/* ── Jitsi panel ──────────────────────────────────────────────── */}
         {showVideo && !isEnded && consultation?.room.jitsiRoomUrl && (
           <div className="flex flex-col flex-1">
@@ -689,7 +719,9 @@ export default function ConsultationPage() {
         {showVideo && !isEnded && !consultation?.room.jitsiRoomUrl && (
           <div className="flex flex-col flex-1 items-center justify-center bg-gray-900 text-white gap-3">
             <Video className="w-8 h-8 text-gray-400" />
-            <p className="text-sm text-gray-400">Video room is being prepared…</p>
+            <p className="text-sm text-gray-400">
+              Video room is being prepared…
+            </p>
           </div>
         )}
 
@@ -700,7 +732,9 @@ export default function ConsultationPage() {
               <VideoOff className="w-8 h-8 text-gray-400" />
             </div>
             <p className="text-sm text-gray-400">
-              {consultStatus === "cancelled" ? "Session was cancelled." : "Session has ended."}
+              {consultStatus === "cancelled"
+                ? "Session was cancelled."
+                : "Session has ended."}
             </p>
           </div>
         )}
@@ -744,7 +778,9 @@ export default function ConsultationPage() {
               {/* Patient sees notes tab only after consultation ends and notes are released */}
               {role === "patient" &&
                 consultStatus === "ended" &&
-                notes.filter((n) => n.status === "final" && n.releasedToPatientAt).length > 0 && (
+                notes.filter(
+                  (n) => n.status === "final" && n.releasedToPatientAt,
+                ).length > 0 && (
                   <button
                     onClick={() => setActivePanel("notes")}
                     className={`flex-1 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
@@ -764,11 +800,16 @@ export default function ConsultationPage() {
               <>
                 {/* Connection indicator */}
                 <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border-b border-border/50 bg-background/40">
-                  <span className={`w-1.5 h-1.5 rounded-full ${connInfo.dot}`} />
-                  <span className="text-xs text-muted-foreground">{connInfo.label}</span>
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${connInfo.dot}`}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {connInfo.label}
+                  </span>
                   {messages.length > 0 && (
                     <span className="ml-auto text-xs text-muted-foreground/60">
-                      {messages.length} message{messages.length !== 1 ? "s" : ""}
+                      {messages.length} message
+                      {messages.length !== 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
@@ -789,7 +830,8 @@ export default function ConsultationPage() {
                     const isMe = msg.senderId === userId;
                     const prevMsg = messages[idx - 1];
                     const showDate =
-                      !prevMsg || dateLabel(msg.createdAt) !== dateLabel(prevMsg.createdAt);
+                      !prevMsg ||
+                      dateLabel(msg.createdAt) !== dateLabel(prevMsg.createdAt);
 
                     return (
                       <div key={msg.id}>
@@ -803,7 +845,9 @@ export default function ConsultationPage() {
                           </div>
                         )}
 
-                        <div className={`flex flex-col gap-0.5 ${isMe ? "items-end" : "items-start"}`}>
+                        <div
+                          className={`flex flex-col gap-0.5 ${isMe ? "items-end" : "items-start"}`}
+                        >
                           {/* Safety flag */}
                           {msg.safetyFlags.length > 0 && (
                             <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2 py-1 max-w-[90%] flex items-start gap-1">
@@ -823,7 +867,8 @@ export default function ConsultationPage() {
                           </div>
 
                           <span className="text-[10px] text-muted-foreground">
-                            {msg.senderRole === "doctor" ? "Dr." : "Patient"} · {timeLabel(msg.createdAt)}
+                            {msg.senderRole === "doctor" ? "Dr." : "Patient"} ·{" "}
+                            {timeLabel(msg.createdAt)}
                             {msg.editedAt && " · edited"}
                           </span>
                         </div>
@@ -844,8 +889,14 @@ export default function ConsultationPage() {
                       type="text"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                      placeholder={connection === "offline" ? "Disconnected…" : "Type a message…"}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && !e.shiftKey && sendMessage()
+                      }
+                      placeholder={
+                        connection === "offline"
+                          ? "Disconnected…"
+                          : "Type a message…"
+                      }
                       className="flex-1 border border-border bg-input-background text-foreground rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                       disabled={chatDisabled}
                     />
@@ -864,7 +915,6 @@ export default function ConsultationPage() {
             {/* ── Clinical Notes panel (Doctor) ───────────────────── */}
             {activePanel === "notes" && role === "doctor" && consultation && (
               <div className="flex-1 overflow-y-auto p-3 space-y-4">
-
                 {/* Note form */}
                 <div className="space-y-2">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -878,7 +928,10 @@ export default function ConsultationPage() {
                     onChange={(e) =>
                       setNoteSoap((prev) => ({
                         ...prev,
-                        subjective: { ...prev.subjective, chiefComplaint: e.target.value },
+                        subjective: {
+                          ...prev.subjective,
+                          chiefComplaint: e.target.value,
+                        },
                       }))
                     }
                     className="w-full border border-border bg-input-background text-foreground rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring resize-none"
@@ -891,7 +944,10 @@ export default function ConsultationPage() {
                     onChange={(e) =>
                       setNoteSoap((prev) => ({
                         ...prev,
-                        objective: { ...prev.objective, vitals: e.target.value },
+                        objective: {
+                          ...prev.objective,
+                          vitals: e.target.value,
+                        },
                       }))
                     }
                     className="w-full border border-border bg-input-background text-foreground rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring resize-none"
@@ -904,7 +960,10 @@ export default function ConsultationPage() {
                     onChange={(e) =>
                       setNoteSoap((prev) => ({
                         ...prev,
-                        assessment: { ...prev.assessment, diagnosis: e.target.value },
+                        assessment: {
+                          ...prev.assessment,
+                          diagnosis: e.target.value,
+                        },
                       }))
                     }
                     className="w-full border border-border bg-input-background text-foreground rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring resize-none"
@@ -946,7 +1005,11 @@ export default function ConsultationPage() {
                       }
                       className="flex-1 bg-primary text-primary-foreground text-xs py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
                     >
-                      {savingNote ? "Saving…" : editingNoteId ? "Update Note" : "Save Draft"}
+                      {savingNote
+                        ? "Saving…"
+                        : editingNoteId
+                          ? "Update Note"
+                          : "Save Draft"}
                     </button>
                     {editingNoteId && (
                       <button
@@ -978,7 +1041,9 @@ export default function ConsultationPage() {
                         >
                           {/* Note header */}
                           <button
-                            onClick={() => setExpandedNoteId(isExpanded ? null : note.id)}
+                            onClick={() =>
+                              setExpandedNoteId(isExpanded ? null : note.id)
+                            }
                             className="w-full flex items-center justify-between px-3 py-2 bg-background/60 hover:bg-secondary/50 transition-colors text-left"
                           >
                             <div className="flex items-center gap-2">
@@ -992,7 +1057,9 @@ export default function ConsultationPage() {
                                 {note.status}
                               </span>
                               {note.releasedToPatientAt && (
-                                <span className="text-[10px] text-teal-600">released</span>
+                                <span className="text-[10px] text-teal-600">
+                                  released
+                                </span>
                               )}
                               <span className="text-[10px] text-muted-foreground">
                                 {timeLabel(note.createdAt)}
@@ -1012,10 +1079,12 @@ export default function ConsultationPage() {
                                 {note.soap.subjective.chiefComplaint}
                               </p>
                               <p className="text-muted-foreground">
-                                <span className="font-medium">Dx:</span> {note.soap.assessment.diagnosis}
+                                <span className="font-medium">Dx:</span>{" "}
+                                {note.soap.assessment.diagnosis}
                               </p>
                               <p className="text-muted-foreground">
-                                <span className="font-medium">Plan:</span> {note.soap.plan.treatmentPlan}
+                                <span className="font-medium">Plan:</span>{" "}
+                                {note.soap.plan.treatmentPlan}
                               </p>
                               {note.patientSummary && (
                                 <p className="text-muted-foreground italic">
@@ -1030,28 +1099,33 @@ export default function ConsultationPage() {
                                       onClick={() => {
                                         setEditingNoteId(note.id);
                                         setNoteSoap(note.soap);
-                                        setNotePatientSummary(note.patientSummary ?? "");
+                                        setNotePatientSummary(
+                                          note.patientSummary ?? "",
+                                        );
                                       }}
                                       className="text-[10px] border border-border rounded px-2 py-0.5 hover:bg-secondary"
                                     >
                                       Edit
                                     </button>
                                     <button
-                                      onClick={() => handleFinaliseNote(note.id)}
+                                      onClick={() =>
+                                        handleFinaliseNote(note.id)
+                                      }
                                       className="text-[10px] bg-green-600 text-white rounded px-2 py-0.5 hover:bg-green-700"
                                     >
                                       Finalise
                                     </button>
                                   </>
                                 )}
-                                {note.status === "final" && !note.releasedToPatientAt && (
-                                  <button
-                                    onClick={() => handleReleaseNote(note.id)}
-                                    className="text-[10px] bg-teal-600 text-white rounded px-2 py-0.5 hover:bg-teal-700"
-                                  >
-                                    Release to patient
-                                  </button>
-                                )}
+                                {note.status === "final" &&
+                                  !note.releasedToPatientAt && (
+                                    <button
+                                      onClick={() => handleReleaseNote(note.id)}
+                                      className="text-[10px] bg-teal-600 text-white rounded px-2 py-0.5 hover:bg-teal-700"
+                                    >
+                                      Release to patient
+                                    </button>
+                                  )}
                               </div>
                             </div>
                           )}
@@ -1070,7 +1144,9 @@ export default function ConsultationPage() {
                   Clinical Notes from Doctor
                 </h3>
 
-                {notes.filter((n) => n.status === "final" && n.releasedToPatientAt).length === 0 ? (
+                {notes.filter(
+                  (n) => n.status === "final" && n.releasedToPatientAt,
+                ).length === 0 ? (
                   <div className="flex flex-col items-center gap-2 py-8">
                     <FileText className="w-8 h-8 text-muted-foreground/30" />
                     <p className="text-xs text-muted-foreground text-center">
@@ -1079,24 +1155,43 @@ export default function ConsultationPage() {
                   </div>
                 ) : (
                   notes
-                    .filter((n) => n.status === "final" && n.releasedToPatientAt)
+                    .filter(
+                      (n) => n.status === "final" && n.releasedToPatientAt,
+                    )
                     .map((note) => (
                       <div
                         key={note.id}
                         className="border border-border rounded-xl p-3 space-y-2 text-sm"
                       >
                         {note.patientSummary && (
-                          <p className="text-foreground font-medium">{note.patientSummary}</p>
+                          <p className="text-foreground font-medium">
+                            {note.patientSummary}
+                          </p>
                         )}
                         <div className="text-xs text-muted-foreground space-y-1 border-t border-border/50 pt-2">
-                          <p><span className="font-medium">Complaint:</span> {note.soap.subjective.chiefComplaint}</p>
-                          <p><span className="font-medium">Diagnosis:</span> {note.soap.assessment.diagnosis}</p>
-                          <p><span className="font-medium">Plan:</span> {note.soap.plan.treatmentPlan}</p>
+                          <p>
+                            <span className="font-medium">Complaint:</span>{" "}
+                            {note.soap.subjective.chiefComplaint}
+                          </p>
+                          <p>
+                            <span className="font-medium">Diagnosis:</span>{" "}
+                            {note.soap.assessment.diagnosis}
+                          </p>
+                          <p>
+                            <span className="font-medium">Plan:</span>{" "}
+                            {note.soap.plan.treatmentPlan}
+                          </p>
                           {note.soap.plan.medications && (
-                            <p><span className="font-medium">Medications:</span> {note.soap.plan.medications}</p>
+                            <p>
+                              <span className="font-medium">Medications:</span>{" "}
+                              {note.soap.plan.medications}
+                            </p>
                           )}
                           {note.soap.plan.followUpInstructions && (
-                            <p><span className="font-medium">Follow-up:</span> {note.soap.plan.followUpInstructions}</p>
+                            <p>
+                              <span className="font-medium">Follow-up:</span>{" "}
+                              {note.soap.plan.followUpInstructions}
+                            </p>
                           )}
                         </div>
                         <p className="text-[10px] text-muted-foreground">
@@ -1109,14 +1204,17 @@ export default function ConsultationPage() {
             )}
 
             {/* ── Patient pre-consult notes placeholder ────────────── */}
-            {activePanel === "notes" && role === "patient" && consultStatus !== "ended" && (
-              <div className="flex-1 flex flex-col items-center justify-center p-6 gap-2">
-                <FileText className="w-8 h-8 text-muted-foreground/30" />
-                <p className="text-xs text-muted-foreground text-center">
-                  Clinical notes will be available after the consultation ends and the doctor releases them.
-                </p>
-              </div>
-            )}
+            {activePanel === "notes" &&
+              role === "patient" &&
+              consultStatus !== "ended" && (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 gap-2">
+                  <FileText className="w-8 h-8 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground text-center">
+                    Clinical notes will be available after the consultation ends
+                    and the doctor releases them.
+                  </p>
+                </div>
+              )}
           </div>
         )}
       </div>

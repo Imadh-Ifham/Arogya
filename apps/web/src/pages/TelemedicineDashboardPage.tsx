@@ -1,256 +1,511 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useAppSelector } from "../app/hooks";
 import {
-  fetchDoctorConsultations,
-  fetchPatientConsultations,
+  fetchDoctorRooms,
+  fetchPatientRooms,
 } from "../modules/telemedicine/api/rest";
-import type { ConsultationView, ConsultationStatus } from "../modules/telemedicine/api/rest";
+import type { ConsultationRoom } from "../modules/telemedicine/api/rest";
 import Layout from "../components/Layout";
 import {
   Video,
-  Clock,
-  CheckCircle2,
-  XCircle,
   AlertCircle,
-  ChevronRight,
-  CalendarDays,
+  CalendarClock,
+  ExternalLink,
+  CircleCheck,
+  User,
+  Stethoscope,
+  ShieldAlert,
+  TimerReset,
+  XCircle,
+  RefreshCw,
+  Clock3,
+  Activity,
 } from "lucide-react";
-
-// ─── Status display config ─────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<
-  ConsultationStatus,
-  { label: string; icon: React.ElementType; dot: string; badge: string }
-> = {
-  scheduled: {
-    label: "Scheduled",
-    icon: Clock,
-    dot: "bg-amber-400",
-    badge: "bg-amber-50 text-amber-700 border-amber-200",
-  },
-  active: {
-    label: "In Progress",
-    icon: Video,
-    dot: "bg-green-500 animate-pulse",
-    badge: "bg-green-50 text-green-700 border-green-200",
-  },
-  ended: {
-    label: "Ended",
-    icon: CheckCircle2,
-    dot: "bg-gray-400",
-    badge: "bg-gray-50 text-gray-600 border-gray-200",
-  },
-  cancelled: {
-    label: "Cancelled",
-    icon: XCircle,
-    dot: "bg-red-400",
-    badge: "bg-red-50 text-red-700 border-red-200",
-  },
-};
-
-const STATUS_ORDER: ConsultationStatus[] = ["active", "scheduled", "ended", "cancelled"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+type DoctorProfile = {
+  name: string;
+  specialty: string;
+  experience: string;
+  languages: string;
+  rating: string;
+  nextInstruction: string;
+};
+
+type PatientRecord = {
+  ageBand: string;
+  triageTag: string;
+  chronicHistory: string;
+  allergyFlag: string;
+  lastVisit: string;
+  riskLevel: "Low" | "Moderate" | "Watch";
+};
+
+type RoomUiState = {
+  closed: boolean;
+  expiresAt?: string;
+};
+
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
-// ─── Consultation card ────────────────────────────────────────────────────────
+function formatShortRoomId(roomId: string): string {
+  return `TM-RM-${roomId.slice(-6).toUpperCase()}`;
+}
 
-function ConsultationCard({
-  consultation,
+function maskId(value: string): string {
+  if (value.length <= 4) return value;
+  return `${value.slice(0, 2)}••••${value.slice(-2)}`;
+}
+
+function seedToIndex(seed: string, len: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return hash % len;
+}
+
+const DUMMY_DOCTOR_PROFILES: DoctorProfile[] = [
+  {
+    name: "Dr. Anika Rao",
+    specialty: "Internal Medicine",
+    experience: "11 yrs exp",
+    languages: "EN, HI, TA",
+    rating: "4.8",
+    nextInstruction: "Keep latest vitals handy before joining.",
+  },
+  {
+    name: "Dr. Kabir Menon",
+    specialty: "Cardiology",
+    experience: "14 yrs exp",
+    languages: "EN, HI, ML",
+    rating: "4.9",
+    nextInstruction: "Share prior ECG reports if available.",
+  },
+  {
+    name: "Dr. Isha Verma",
+    specialty: "Dermatology",
+    experience: "8 yrs exp",
+    languages: "EN, HI",
+    rating: "4.7",
+    nextInstruction: "Use good lighting for skin review.",
+  },
+  {
+    name: "Dr. Rohan Iyer",
+    specialty: "General Practice",
+    experience: "9 yrs exp",
+    languages: "EN, HI, KN",
+    rating: "4.6",
+    nextInstruction: "List current medications before consult.",
+  },
+];
+
+const DUMMY_PATIENT_RECORDS: PatientRecord[] = [
+  {
+    ageBand: "29-34",
+    triageTag: "Follow-up",
+    chronicHistory: "Mild asthma",
+    allergyFlag: "Penicillin",
+    lastVisit: "6 days ago",
+    riskLevel: "Moderate",
+  },
+  {
+    ageBand: "41-46",
+    triageTag: "Medication review",
+    chronicHistory: "Type-2 diabetes",
+    allergyFlag: "No known allergies",
+    lastVisit: "2 weeks ago",
+    riskLevel: "Watch",
+  },
+  {
+    ageBand: "22-28",
+    triageTag: "Acute symptom",
+    chronicHistory: "None reported",
+    allergyFlag: "Dust sensitivity",
+    lastVisit: "First consult",
+    riskLevel: "Low",
+  },
+  {
+    ageBand: "35-40",
+    triageTag: "Chronic monitoring",
+    chronicHistory: "Hypertension",
+    allergyFlag: "Sulfa drugs",
+    lastVisit: "3 days ago",
+    riskLevel: "Watch",
+  },
+];
+
+function getDummyDoctorProfile(room: ConsultationRoom): DoctorProfile {
+  return DUMMY_DOCTOR_PROFILES[
+    seedToIndex(room.id, DUMMY_DOCTOR_PROFILES.length)
+  ];
+}
+
+function getDummyPatientRecord(room: ConsultationRoom): PatientRecord {
+  return DUMMY_PATIENT_RECORDS[
+    seedToIndex(room.id, DUMMY_PATIENT_RECORDS.length)
+  ];
+}
+
+function riskPill(risk: PatientRecord["riskLevel"]): string {
+  if (risk === "Watch") return "bg-red-50 text-red-700 border-red-200";
+  if (risk === "Moderate") return "bg-amber-50 text-amber-700 border-amber-200";
+  return "bg-green-50 text-green-700 border-green-200";
+}
+
+// ─── Patient room card ───────────────────────────────────────────────────────
+
+function PatientRoomCard({
+  room,
   role,
 }: {
-  consultation: ConsultationView;
+  room: ConsultationRoom;
   role: "doctor" | "patient";
 }) {
-  const cfg = STATUS_CONFIG[consultation.status];
-  const Icon = cfg.icon;
-  const consultationPath =
-    role === "doctor"
-      ? `/doctor/appointments/${consultation.appointmentId}/consultation`
-      : `/appointments/${consultation.appointmentId}/consultation`;
-
-  const canJoin = consultation.status === "active" || consultation.status === "scheduled";
+  const doctor = getDummyDoctorProfile(room);
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-4 hover:border-primary/40 transition-colors">
-      {/* Status dot */}
-      <div className="mt-1 flex-shrink-0">
-        <span className={`block w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
-      </div>
+    <div className="bg-card border border-border rounded-2xl p-5 hover:border-primary/40 transition-colors shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200 inline-flex items-center gap-1">
+              <CircleCheck className="w-3 h-3" />
+              Active Room
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {formatShortRoomId(room.id)}
+            </span>
+          </div>
 
-      {/* Body */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className={`text-xs font-medium px-2 py-0.5 rounded-full border ${cfg.badge} flex items-center gap-1`}
-          >
-            <Icon className="w-3 h-3" />
-            {cfg.label}
-          </span>
-          {consultation.status === "active" && (
-            <span className="text-xs text-green-600 font-semibold">LIVE</span>
-          )}
+          <h3 className="text-base font-semibold text-foreground truncate">
+            {doctor.name}
+          </h3>
+          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <Stethoscope className="w-4 h-4" />
+            {doctor.specialty} • {doctor.experience}
+          </p>
+
+          <div className="grid grid-cols-2 gap-2 text-xs mt-3">
+            <div className="rounded-lg border border-border px-2.5 py-2 bg-background/70">
+              <p className="text-muted-foreground">Languages</p>
+              <p className="text-foreground font-medium">{doctor.languages}</p>
+            </div>
+            <div className="rounded-lg border border-border px-2.5 py-2 bg-background/70">
+              <p className="text-muted-foreground">Rating</p>
+              <p className="text-foreground font-medium">{doctor.rating} / 5</p>
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground mt-2">
+            Next step:{" "}
+            <span className="text-foreground">{doctor.nextInstruction}</span>
+          </p>
         </div>
 
-        <p className="text-sm font-medium text-foreground mt-1.5 truncate">
-          Consultation #{consultation.id.slice(-8)}
-        </p>
-
-        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-          <CalendarDays className="w-3 h-3 shrink-0" />
-          {formatDate(consultation.startsAt)}
-        </p>
-
-        {consultation.room && consultation.status !== "cancelled" && (
-          <p className="text-xs text-muted-foreground/70 mt-0.5 truncate">
-            Room: {consultation.room.jitsiRoomName}
-          </p>
-        )}
+        <Link
+          to={
+            role === "doctor"
+              ? `/doctor/telemedicine/rooms/${room.id}`
+              : `/patient/telemedicine/rooms/${room.id}`
+          }
+          className="shrink-0 inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-medium px-3 py-2 rounded-lg hover:opacity-90 transition-opacity"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          Open Room
+        </Link>
       </div>
 
-      {/* CTA */}
-      {canJoin ? (
-        <Link
-          to={consultationPath}
-          className="flex-shrink-0 flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-medium px-3 py-2 rounded-lg hover:opacity-90 transition-opacity"
-        >
-          {consultation.status === "active" ? (
-            <>
-              <Video className="w-3.5 h-3.5" />
-              Join
-            </>
-          ) : (
-            <>
-              <Video className="w-3.5 h-3.5" />
-              Open
-            </>
-          )}
-        </Link>
-      ) : (
-        <Link
-          to={consultationPath}
-          className="flex-shrink-0 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          View
-          <ChevronRight className="w-3.5 h-3.5" />
-        </Link>
-      )}
+      <div className="mt-4 grid sm:grid-cols-2 gap-2">
+        <div className="text-xs rounded-lg border border-border px-2.5 py-2 bg-background/70">
+          <p className="text-muted-foreground inline-flex items-center gap-1">
+            <CalendarClock className="w-3.5 h-3.5" />
+            Room expires
+          </p>
+          <p className="text-foreground font-medium">
+            {formatDate(room.expiresAt)}
+          </p>
+        </div>
+        <div className="text-xs rounded-lg border border-border px-2.5 py-2 bg-background/70">
+          <p className="text-muted-foreground inline-flex items-center gap-1">
+            <User className="w-3.5 h-3.5" />
+            Doctor code
+          </p>
+          <p className="text-foreground font-medium">{maskId(room.doctorId)}</p>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── Grouped section ──────────────────────────────────────────────────────────
+// ─── Doctor room card ────────────────────────────────────────────────────────
 
-function StatusGroup({
-  status,
-  consultations,
-  role,
+function DoctorRoomCard({
+  room,
+  uiState,
+  onExtend,
+  onClose,
+  onReopen,
 }: {
-  status: ConsultationStatus;
-  consultations: ConsultationView[];
-  role: "doctor" | "patient";
+  room: ConsultationRoom;
+  uiState: RoomUiState | undefined;
+  onExtend: (roomId: string) => void;
+  onClose: (roomId: string) => void;
+  onReopen: (roomId: string) => void;
 }) {
-  if (consultations.length === 0) return null;
-  const cfg = STATUS_CONFIG[status];
-  const Icon = cfg.icon;
+  const record = getDummyPatientRecord(room);
+  const isClosed = uiState?.closed === true;
+  const currentExpiry = uiState?.expiresAt ?? room.expiresAt;
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          {cfg.label}
-        </h2>
-        <span className="text-xs text-muted-foreground/60 bg-muted rounded-full px-2 py-0.5">
-          {consultations.length}
+    <div className="bg-card border border-border rounded-2xl p-5 hover:border-primary/40 transition-colors shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={`text-xs font-medium px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${
+                isClosed
+                  ? "bg-gray-50 text-gray-600 border-gray-200"
+                  : "bg-green-50 text-green-700 border-green-200"
+              }`}
+            >
+              <CircleCheck className="w-3 h-3" />
+              {isClosed ? "Closed (local)" : "Active Room"}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {formatShortRoomId(room.id)}
+            </span>
+          </div>
+
+          <h3 className="text-base font-semibold text-foreground truncate">
+            Patient Workspace
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Patient code:{" "}
+            <span className="text-foreground font-medium">
+              {maskId(room.patientId)}
+            </span>
+          </p>
+        </div>
+
+        <Link
+          to={`/doctor/telemedicine/rooms/${room.id}`}
+          className="shrink-0 inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-medium px-3 py-2 rounded-lg hover:opacity-90 transition-opacity"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          Open Room
+        </Link>
+      </div>
+
+      <div className="mt-4 grid md:grid-cols-3 gap-2 text-xs">
+        <div className="rounded-lg border border-border px-2.5 py-2 bg-background/70">
+          <p className="text-muted-foreground inline-flex items-center gap-1">
+            <Activity className="w-3.5 h-3.5" />
+            Triage tag
+          </p>
+          <p className="text-foreground font-medium">{record.triageTag}</p>
+        </div>
+        <div className="rounded-lg border border-border px-2.5 py-2 bg-background/70">
+          <p className="text-muted-foreground">Age band</p>
+          <p className="text-foreground font-medium">{record.ageBand}</p>
+        </div>
+        <div className="rounded-lg border border-border px-2.5 py-2 bg-background/70">
+          <p className="text-muted-foreground">Last visit</p>
+          <p className="text-foreground font-medium">{record.lastVisit}</p>
+        </div>
+        <div className="rounded-lg border border-border px-2.5 py-2 bg-background/70">
+          <p className="text-muted-foreground">Chronic history</p>
+          <p className="text-foreground font-medium">{record.chronicHistory}</p>
+        </div>
+        <div className="rounded-lg border border-border px-2.5 py-2 bg-background/70">
+          <p className="text-muted-foreground">Allergy flag</p>
+          <p className="text-foreground font-medium">{record.allergyFlag}</p>
+        </div>
+        <div className="rounded-lg border border-border px-2.5 py-2 bg-background/70">
+          <p className="text-muted-foreground inline-flex items-center gap-1">
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Risk profile
+          </p>
+          <span
+            className={`inline-flex text-[11px] border rounded-full px-2 py-0.5 mt-1 ${riskPill(record.riskLevel)}`}
+          >
+            {record.riskLevel}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground inline-flex items-center gap-1 mr-1">
+          <Clock3 className="w-3.5 h-3.5" />
+          Expires: {formatDate(currentExpiry)}
         </span>
+
+        <button
+          type="button"
+          onClick={() => onExtend(room.id)}
+          className="text-xs border border-border text-foreground rounded-lg px-2.5 py-1.5 hover:bg-secondary transition-colors inline-flex items-center gap-1"
+        >
+          <TimerReset className="w-3.5 h-3.5" />
+          Extend 30m
+        </button>
+
+        {!isClosed ? (
+          <button
+            type="button"
+            onClick={() => onClose(room.id)}
+            className="text-xs border border-red-200 text-red-700 rounded-lg px-2.5 py-1.5 hover:bg-red-50 transition-colors inline-flex items-center gap-1"
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            Close
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onReopen(room.id)}
+            className="text-xs border border-green-200 text-green-700 rounded-lg px-2.5 py-1.5 hover:bg-green-50 transition-colors inline-flex items-center gap-1"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Reopen
+          </button>
+        )}
       </div>
-      <div className="space-y-2">
-        {consultations.map((c) => (
-          <ConsultationCard key={c.id} consultation={c} role={role} />
-        ))}
-      </div>
-    </section>
+
+      <p className="text-[11px] text-muted-foreground mt-2">
+        Quick actions are UI-only for now and don’t persist to backend.
+      </p>
+    </div>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function TelemedicineDashboardPage() {
-  const { user } = useAppSelector((s) => s.auth);
-
-  const [consultations, setConsultations] = useState<ConsultationView[]>([]);
+export default function TelemedicineDashboardPage({
+  audience,
+}: {
+  audience: "doctor" | "patient";
+}) {
+  const [rooms, setRooms] = useState<ConsultationRoom[]>([]);
+  const [roomUiState, setRoomUiState] = useState<Record<string, RoomUiState>>(
+    {},
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const role: "doctor" | "patient" = user?.role === "doctor" ? "doctor" : "patient";
+  const role: "doctor" | "patient" = audience;
+  const userId = role === "doctor" ? "1111111111" : "2222222222";
 
   useEffect(() => {
-    const userId = user?._id;
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     const fetch =
       role === "doctor"
-        ? fetchDoctorConsultations(userId)
-        : fetchPatientConsultations(userId);
+        ? fetchDoctorRooms(userId, true)
+        : fetchPatientRooms(userId, true);
 
     fetch
       .then((data) => {
-        // Sort: active first, then by startsAt descending
-        const sorted = [...data].sort((a, b) => {
-          const statusRank = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
-          if (statusRank !== 0) return statusRank;
-          return new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime();
-        });
-        setConsultations(sorted);
+        const sorted = [...data].sort(
+          (a, b) =>
+            new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime(),
+        );
+        setRooms(sorted);
+        setRoomUiState({});
       })
-      .catch(() => setError("Failed to load consultations. Please try again."))
+      .catch(() => setError("Failed to load active rooms. Please try again."))
       .finally(() => setLoading(false));
-  }, [user?.id, role]);
+  }, [userId, role]);
 
-  // Group by status
-  const grouped = STATUS_ORDER.reduce<Record<ConsultationStatus, ConsultationView[]>>(
-    (acc, s) => {
-      acc[s] = consultations.filter((c) => c.status === s);
-      return acc;
-    },
-    { active: [], scheduled: [], ended: [], cancelled: [] },
-  );
+  const applyRoomUiState = (room: ConsultationRoom): ConsultationRoom => {
+    const ui = roomUiState[room.id];
+    if (!ui?.expiresAt) return room;
+    return { ...room, expiresAt: ui.expiresAt };
+  };
 
-  const hasAny = consultations.length > 0;
+  const visibleRooms = rooms
+    .map(applyRoomUiState)
+    .filter((room) => !roomUiState[room.id]?.closed);
+
+  const hasAny = visibleRooms.length > 0;
+
+  const extendRoomUi = (roomId: string) => {
+    const target = rooms.find((room) => room.id === roomId);
+    if (!target) return;
+
+    const currentExpiry = roomUiState[roomId]?.expiresAt ?? target.expiresAt;
+    const nextExpiry = new Date(
+      new Date(currentExpiry).getTime() + 30 * 60 * 1000,
+    ).toISOString();
+
+    setRoomUiState((prev) => ({
+      ...prev,
+      [roomId]: {
+        ...prev[roomId],
+        closed: false,
+        expiresAt: nextExpiry,
+      },
+    }));
+  };
+
+  const closeRoomUi = (roomId: string) => {
+    setRoomUiState((prev) => ({
+      ...prev,
+      [roomId]: {
+        ...prev[roomId],
+        closed: true,
+      },
+    }));
+  };
+
+  const reopenRoomUi = (roomId: string) => {
+    const target = rooms.find((room) => room.id === roomId);
+    if (!target) return;
+
+    const currentExpiry = roomUiState[roomId]?.expiresAt ?? target.expiresAt;
+    const minExpiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const nextExpiry =
+      new Date(currentExpiry).getTime() > Date.now()
+        ? currentExpiry
+        : minExpiry;
+
+    setRoomUiState((prev) => ({
+      ...prev,
+      [roomId]: {
+        closed: false,
+        expiresAt: nextExpiry,
+      },
+    }));
+  };
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Video className="w-6 h-6 text-primary" />
-              Telemedicine
+              {role === "doctor"
+                ? "Doctor Telemedicine"
+                : "Patient Telemedicine"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {role === "doctor"
-                ? "Your online consultations with patients"
-                : "Your scheduled video consultations"}
+                ? "Dedicated doctor workspace for your active rooms"
+                : "Dedicated patient workspace for your active rooms"}
             </p>
           </div>
 
-          {/* Active live badge */}
-          {grouped.active.length > 0 && (
+          {visibleRooms.length > 0 && (
             <span className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-full">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              {grouped.active.length} Live
+              {visibleRooms.length} Active
             </span>
           )}
         </div>
@@ -259,7 +514,9 @@ export default function TelemedicineDashboardPage() {
         {loading && (
           <div className="flex flex-col items-center py-16 gap-3">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-muted-foreground">Loading consultations…</p>
+            <p className="text-sm text-muted-foreground">
+              Loading consultations…
+            </p>
           </div>
         )}
 
@@ -283,29 +540,34 @@ export default function TelemedicineDashboardPage() {
         {!loading && !error && !hasAny && (
           <div className="flex flex-col items-center py-16 gap-3 text-center">
             <Video className="w-10 h-10 text-muted-foreground/40" />
-            <p className="text-sm font-medium text-foreground">No consultations yet</p>
+            <p className="text-sm font-medium text-foreground">
+              No active rooms visible
+            </p>
             <p className="text-xs text-muted-foreground max-w-xs">
               {role === "patient"
-                ? "Book an online appointment to start a telemedicine consultation."
-                : "Once patients book online appointments that you accept, they'll appear here."}
+                ? "No non-expired room is allocated to this patient yet."
+                : "No non-expired room is allocated to this doctor yet, or you locally closed them all."}
             </p>
-            {role === "patient" && (
-              <Link
-                to="/slots"
-                className="mt-2 text-sm bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
-              >
-                Browse doctors
-              </Link>
-            )}
           </div>
         )}
 
-        {/* Grouped lists */}
+        {/* Room list */}
         {!loading && !error && hasAny && (
-          <div className="space-y-8">
-            {STATUS_ORDER.map((s) => (
-              <StatusGroup key={s} status={s} consultations={grouped[s]} role={role} />
-            ))}
+          <div className="space-y-3">
+            {visibleRooms.map((room) =>
+              role === "doctor" ? (
+                <DoctorRoomCard
+                  key={room.id}
+                  room={room}
+                  uiState={roomUiState[room.id]}
+                  onExtend={extendRoomUi}
+                  onClose={closeRoomUi}
+                  onReopen={reopenRoomUi}
+                />
+              ) : (
+                <PatientRoomCard key={room.id} room={room} role={role} />
+              ),
+            )}
           </div>
         )}
       </div>

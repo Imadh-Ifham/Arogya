@@ -1,10 +1,10 @@
 import cors from "cors";
 import express, { type Request, type Response } from "express";
-import { apiRouter } from "./src/routes/index.js";
-import { logger } from "./src/shared/logger.js";
-import { errorHandler } from "./src/shared/http/error-handler.js";
-import { notFoundHandler } from "./src/shared/http/not-found.js";
-import { getOrCreateUsableRoomByParticipants } from "./src/modules/rooms/room.service.js";
+import { apiRouter } from "./routes/index.js";
+import { logger } from "./shared/logger.js";
+import { errorHandler } from "./shared/http/error-handler.js";
+import { notFoundHandler } from "./shared/http/not-found.js";
+import { getOrCreateUsableRoomByParticipants } from "./modules/rooms/room.service.js";
 
 export function buildApp() {
   const app = express();
@@ -32,20 +32,29 @@ export function buildApp() {
     };
 
     if (!appointmentId || !patientId || !doctorId) {
-      res.status(400).json({ error: "appointmentId, patientId and doctorId are required" });
+      res
+        .status(400)
+        .json({ error: "appointmentId, patientId and doctorId are required" });
       return;
     }
 
     try {
-      const room = await getOrCreateUsableRoomByParticipants(doctorId, patientId);
+      const room = await getOrCreateUsableRoomByParticipants(
+        doctorId,
+        patientId,
+      );
       logger.info(
         { appointmentId, patientId, doctorId, roomKey: room.roomKey },
         "Session room resolved for appointment booking",
       );
       res.status(200).json({ meetingUrl: room.jitsiRoomUrl });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to create session";
-      logger.error({ err, appointmentId, patientId, doctorId }, "Failed to resolve session room");
+      const message =
+        err instanceof Error ? err.message : "Failed to create session";
+      logger.error(
+        { err, appointmentId, patientId, doctorId },
+        "Failed to resolve session room",
+      );
       res.status(500).json({ error: message });
     }
   });

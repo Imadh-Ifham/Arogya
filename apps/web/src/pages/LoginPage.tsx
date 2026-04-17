@@ -1,45 +1,30 @@
-import { useState, type FormEvent, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { loginThunk } from "../store/auth/auth.thunk";
-import { clearAuthError } from "../store/auth/auth.slice";
-import { fetchMeThunk } from "../store/auth/auth.thunk";
-import { Activity, Eye, EyeOff } from "lucide-react";
+import { Activity } from "lucide-react";
+import {
+  getRoleHomePath,
+  setFrontendRole,
+  useFrontendRole,
+} from "../app/frontendRole";
 
 export default function LoginPage() {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const { loading, error, accessToken } = useAppSelector((s) => s.auth);
-
-  const { user } = useAppSelector((s) => s.auth);
+  const currentRole = useFrontendRole();
 
   const from = (location.state as any)?.from?.pathname;
 
-  const [form, setForm] = useState({ email: "", password: "" });
   const [tab, setTab] = useState<"patient" | "doctor" | "admin">("patient");
-  const [showPw, setShowPw] = useState(false);
 
-  const roleDefault = (role?: string) => {
-    if (role === "doctor") return "/doctor/dashboard";
-    if (role === "admin")  return "/admin/dashboard";
-    return "/appointments";
-  };
-
-  // Already logged in → redirect based on role
+  // If a role is already selected, go straight to its default area.
   useEffect(() => {
-    if (accessToken && user) navigate(from ?? roleDefault(user.role), { replace: true });
-  }, [accessToken, user, from, navigate]);
+    if (currentRole)
+      navigate(from ?? getRoleHomePath(currentRole), { replace: true });
+  }, [currentRole, from, navigate]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    dispatch(clearAuthError());
-    const result = await dispatch(loginThunk(form));
-    if (loginThunk.fulfilled.match(result)) {
-      const meResult = await dispatch(fetchMeThunk());
-      const profile = fetchMeThunk.fulfilled.match(meResult) ? meResult.payload : null;
-      navigate(from ?? roleDefault(profile?.role), { replace: true });
-    }
+  const continueWithRole = () => {
+    setFrontendRole(tab);
+    navigate(from ?? getRoleHomePath(tab), { replace: true });
   };
 
   return (
@@ -51,6 +36,11 @@ export default function LoginPage() {
         </Link>
 
         <div className="bg-card rounded-2xl border border-border p-8 shadow-sm">
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Temporary frontend mode: authentication is bypassed. Choose a role
+            to continue.
+          </div>
+
           <div className="flex bg-secondary rounded-lg p-1 mb-6">
             {(["patient", "doctor", "admin"] as const).map((r) => (
               <button
@@ -58,7 +48,9 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setTab(r)}
                 className={`flex-1 py-2 rounded-md text-sm capitalize transition-colors ${
-                  tab === r ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                  tab === r
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground"
                 }`}
               >
                 {r === "admin" ? "Admin" : `${r} Login`}
@@ -66,66 +58,21 @@ export default function LoginPage() {
             ))}
           </div>
 
-        {error && (
-          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-sm text-foreground block mb-1.5">Email</label>
-            <input
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="you@example.com"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-foreground block mb-1.5">Password</label>
-            <div className="relative">
-              <input
-                type={showPw ? "text" : "password"}
-                required
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground pr-10 focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="Enter password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPw((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={showPw ? "Hide password" : "Show password"}
-              >
-                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <a href="#" className="text-sm text-teal hover:underline">
-              Forgot password?
-            </a>
-          </div>
-
           <button
-            type="submit"
-            disabled={loading === "pending"}
-            className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+            type="button"
+            onClick={continueWithRole}
+            className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
           >
-            {loading === "pending" ? "Signing in…" : "Sign in"}
+            Continue as {tab === "admin" ? "Admin" : tab}
           </button>
-        </form>
 
           {tab !== "admin" && (
             <p className="text-sm text-muted-foreground text-center mt-6">
               Don't have an account?{" "}
-              <Link to={`/register?role=${tab}`} className="text-teal hover:underline">
+              <Link
+                to={`/register?role=${tab}`}
+                className="text-teal hover:underline"
+              >
                 Register
               </Link>
             </p>

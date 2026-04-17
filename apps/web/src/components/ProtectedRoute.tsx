@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAppSelector } from "../app/hooks";
 import type { ReactNode } from "react";
+import { getRoleHomePath, useFrontendRole } from "../app/frontendRole";
 
 interface Props {
   children: ReactNode;
@@ -9,15 +9,15 @@ interface Props {
 }
 
 export default function ProtectedRoute({ children, requiredRole }: Props) {
-  const { accessToken, user } = useAppSelector((s) => s.auth);
+  const role = useFrontendRole();
   const location = useLocation();
 
-  if (!accessToken) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!role) {
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  if (requiredRole && user?.role !== requiredRole) {
-    return <Navigate to="/" replace />;
+  if (requiredRole && role !== requiredRole) {
+    return <Navigate to={getRoleHomePath(role)} replace />;
   }
 
   return <>{children}</>;
