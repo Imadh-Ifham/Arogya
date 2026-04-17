@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: arogya
+  labels:
+    app.kubernetes.io/name: arogya
+    app.kubernetes.io/part-of: arogya-platform

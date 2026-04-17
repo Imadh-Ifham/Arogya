@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-RUN npm ci --only=production=false
+RUN npm ci --include=dev
 
 COPY server.ts ./
 COPY src/ ./src/
@@ -26,13 +26,16 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy compiled JS from builder — no source, no compiler
 COPY --from=builder /app/dist ./dist
 
 # Never run as root in a container
 USER node
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+	CMD wget -qO- http://localhost:3002/health >/dev/null || exit 1
 
 EXPOSE 3002
 

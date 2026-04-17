@@ -30,9 +30,12 @@ USER arogya
 # Copy only the built JAR — nothing else from the build stage
 COPY --from=builder /app/target/appointment-service-*.jar app.jar
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
+	CMD wget -qO- http://localhost:8084/actuator/health >/dev/null || exit 1
+
 EXPOSE 8084
 
-# UseContainerSupport lets the JVM read cgroup memory limits set by Docker/K8s
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseContainerSupport"
+# Container-aware JVM memory settings for Kubernetes limits
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=75.0"
 
 CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

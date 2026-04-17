@@ -30,6 +30,11 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
+USER node
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+	CMD wget -qO- http://localhost:8087/health >/dev/null || exit 1
+
 EXPOSE 8087
 
 CMD ["node", "dist/src/main.js"]
