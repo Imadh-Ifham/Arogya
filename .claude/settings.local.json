@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(grep -E \"\\\\.\\(ts|js|json\\)$\")",
-      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-21.0.10\" ./mvnw spring-boot:run)"
-    ]
-  }
-}
