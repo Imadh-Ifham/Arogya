@@ -10,6 +10,7 @@ logging:
     org.hibernate.engine.transaction.jta.platform: ERROR
     org.springframework.security: WARN
 
+
 # ==========================================
 # PROFILE: LOCAL (For running in IntelliJ)
 # ==========================================
@@ -19,9 +20,7 @@ spring:
     activate:
       on-profile: local
   datasource:
-    url: jdbc:postgresql://localhost:5432/arogya_doctors
-    username: arogya
-    password: arogya_secret
+    url: jdbc:postgresql://localhost:5432/arogya_doctors?user=arogya&password=arogya_secret
   jpa:
     hibernate:
       ddl-auto: validate
@@ -38,6 +37,7 @@ services:
   appointment:
     url: http://localhost:8084
 
+
 # ==========================================
 # PROFILE: DOCKER (For running via docker-compose)
 # ==========================================
@@ -48,8 +48,6 @@ spring:
       on-profile: docker
   datasource:
     url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update

@@ -25,14 +25,14 @@
 #   Notification Svc  http://localhost:3002
 #
 # Payment flow startup order:
-#   postgres, mongodb → auth/patient/doctor → notification → payment → appointment → gateway → web
+#   external mongodb → auth/patient/doctor → notification → payment → appointment → gateway → web
 #
 # Stripe testing (local):
 #   1. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET in a .env next to this file
 #   2. Run: stripe listen --forward-to localhost:8087/api/payments/webhook
 #   3. Use test card 4242 4242 4242 4242 on the Stripe Checkout page
 # =============================================================================
- 
+
 # ---------------------------------------------------------------------------
 # Networks
 # ---------------------------------------------------------------------------
@@ -40,82 +40,15 @@ networks:
   arogya-net:
     driver: bridge
     name: arogya-net
- 
-# ---------------------------------------------------------------------------
-# Volumes (persistent data)
-# ---------------------------------------------------------------------------
-volumes:
-  postgres-data:
-    name: arogya-postgres-data
-  mongodb-data:
-    name: arogya-mongodb-data
-  notification-mongodb-data:
-    name: arogya-notification-mongodb-data
- 
+
 # ---------------------------------------------------------------------------
 # Services
 # ---------------------------------------------------------------------------
 services:
   # ===========================================================================
-  # INFRASTRUCTURE
-  # ===========================================================================
- 
-  # -------------------------------------------------------------------------
-  # PostgreSQL — Relational store for Java services
-  # Databases: arogya_patients, arogya_appointments, arogya_doctors
-  # Connection: jdbc:postgresql://postgres:5432/<db_name>
-  # -------------------------------------------------------------------------
-  postgres:
-    image: postgres:16-alpine
-    container_name: arogya-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: arogya
-      POSTGRES_PASSWORD: arogya_secret
-      POSTGRES_MULTIPLE_DATABASES: arogya_users,arogya_patients,arogya_appointments,arogya_doctors
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/01-init-multiple-dbs.sh:ro
-    ports:
-      - "5433:5432"
-    networks:
-      - arogya-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U arogya -d postgres || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
- 
-  # -------------------------------------------------------------------------
-  # MongoDB — Document store for auth, telemedicine, AI sessions
-  # Connection: mongodb://arogya:arogya_secret@mongodb:27017/<db>?authSource=admin
-  # -------------------------------------------------------------------------
-  mongodb:
-    image: mongo:7.0
-    container_name: arogya-mongodb
-    restart: unless-stopped
-    command: ["mongod", "--quiet", "--setParameter", "logLevel=0", "--setParameter", "diagnosticDataCollectionEnabled=false"]
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: arogya
-      MONGO_INITDB_ROOT_PASSWORD: arogya_secret
-    volumes:
-      - mongodb-data:/data/db
-    ports:
-      - "27017:27017"
-    networks:
-      - arogya-net
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/27017' 2>/dev/null || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
- 
-  # ===========================================================================
   # STUB SERVICES (no dependencies — start first)
   # ===========================================================================
- 
+
   # -------------------------------------------------------------------------
   # Payment Service — Node.js/Express — Port 8087
   # Stripe-based payment processing, checkout sessions, webhooks, receipts.
@@ -133,13 +66,10 @@ services:
     image: arogya/payment-service:latest
     container_name: arogya-payment-service
     restart: unless-stopped
-    depends_on:
-      mongodb:
-        condition: service_healthy
     environment:
       PORT: 8087
       NODE_ENV: development
-      MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_payments?authSource=admin
+      MONGODB_URI: ${PAYMENT_MONGODB_URI}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       FRONTEND_URL: http://localhost:5173
@@ -155,33 +85,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
- 
-  # -------------------------------------------------------------------------
-  # Notification MongoDB — dedicated store for notification logs & templates
-  # Kept separate from the shared mongodb instance so this service can be
-  # scaled or swapped without touching auth/telemedicine data.
-  # -------------------------------------------------------------------------
-  notification-mongodb:
-    image: mongo:7.0
-    container_name: arogya-notification-mongodb
-    restart: unless-stopped
-    command: ["mongod", "--quiet", "--setParameter", "logLevel=0", "--setParameter", "diagnosticDataCollectionEnabled=false"]
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: arogya
-      MONGO_INITDB_ROOT_PASSWORD: arogya_secret
-      MONGO_INITDB_DATABASE: arogya_notifications
-    volumes:
-      - notification-mongodb-data:/data/db
-    # Not exposed to host — only reachable inside arogya-net
-    networks:
-      - arogya-net
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/27017' 2>/dev/null || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
- 
+
   # -------------------------------------------------------------------------
   # Notification Service — Node.js/Express — Port 3002
   # Sends SMS (Twilio) and email (SendGrid) on behalf of Appointment,
@@ -206,13 +110,10 @@ services:
     image: arogya/notification-service:latest
     container_name: arogya-notification-service
     restart: unless-stopped
-    depends_on:
-      notification-mongodb:
-        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3002
-      MONGODB_URI: mongodb://arogya:arogya_secret@notification-mongodb:27017/arogya_notifications?authSource=admin
+      MONGODB_URI: ${NOTIFICATION_MONGODB_URI}
       # Internal service URLs — used to resolve patient/doctor contact details
       PATIENT_SERVICE_URL: http://patient-service:8082
       DOCTOR_SERVICE_URL: http://doctor-service:8083
@@ -233,11 +134,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
- 
+
   # ===========================================================================
   # CORE APPLICATION SERVICES
   # ===========================================================================
- 
+
   # -------------------------------------------------------------------------
   # Auth Service — Node.js — Port 8081
   # Issues and validates JWTs. Stores users in MongoDB.
@@ -249,13 +150,10 @@ services:
     image: arogya/auth-service:latest
     container_name: arogya-auth-service
     restart: unless-stopped
-    depends_on:
-      mongodb:
-        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 8081
-      MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_auth?authSource=admin
+      MONGODB_URI: ${AUTH_MONGODB_URI}
       JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_SECRET: changeme-use-a-different-256bit-secret-in-production
@@ -275,7 +173,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
- 
+
   # ----------------payment-service---------------------------------------------------------
   # Patient Service — Spring Boot — Port 8082
   # Manages patient profiles and document uploads.
@@ -288,14 +186,9 @@ services:
     image: arogya/patient-service:latest
     container_name: arogya-patient-service
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
       SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/arogya_patients
-      SPRING_DATASOURCE_USERNAME: arogya
-      SPRING_DATASOURCE_PASSWORD: arogya_secret
+      SPRING_DATASOURCE_URL: ${PATIENT_DB_URL}
       # Kafka is in pom but not used in code — disable health indicator to prevent false failures
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_HEALTH_KAFKA_ENABLED: "false"
@@ -314,7 +207,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
- 
+
   # -------------------------------------------------------------------------
   # Doctor Service — Spring Boot — Port 8083
   # Manages doctor profiles, slots, and verification.
@@ -327,15 +220,10 @@ services:
     image: arogya/doctor-service:latest
     container_name: arogya-doctor-service
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
       SERVER_PORT: 8083
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/arogya_doctors
-      SPRING_DATASOURCE_USERNAME: arogya
-      SPRING_DATASOURCE_PASSWORD: arogya_secret
+      SPRING_DATASOURCE_URL: ${DOCTOR_DB_URL}
       # Kafka in pom but unused — placeholder value + disable health indicator
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_HEALTH_KAFKA_ENABLED: "false"
@@ -353,7 +241,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
- 
+
   # -------------------------------------------------------------------------
   # Appointment Service — Spring Boot — Port 8084
   # Booking, slots, payment integration, notification trigger.
@@ -368,8 +256,6 @@ services:
     container_name: arogya-appointment-service
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
       doctor-service:
         condition: service_healthy
       payment-service:
@@ -378,6 +264,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: ${APPOINTMENT_DB_URL}
       JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
     ports:
       - "8084:8084"
@@ -393,7 +280,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
- 
+
   # -------------------------------------------------------------------------
   # Telemedicine Service — Node.js — Port 8086
   # Creates Jitsi rooms and tracks consultation sessions.
@@ -411,15 +298,13 @@ services:
     container_name: arogya-telemedicine-service
     restart: unless-stopped
     depends_on:
-      mongodb:
-        condition: service_healthy
       appointment-service:
         condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 8086
       SERVICE_NAME: telemedicine-service
-      MONGODB_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_telemedicine?authSource=admin
+      MONGODB_URI: ${TELEMEDICINE_MONGODB_URI}
       REQUEST_TIMEOUT_MS: 5000
       ROOM_DEFAULT_EXPIRY_HOURS: 2
       JITSI_BASE_URL: https://meet.jit.si
@@ -432,12 +317,16 @@ services:
     networks:
       - arogya-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8086/api/v1/telemedicine/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:8086/api/v1/telemedicine/health || exit 1",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 20s
- 
+
   # -------------------------------------------------------------------------
   # AI Symptom Checker — Fastify/Node.js — Port 8089
   # Calls AI API (via OpenRouter) to analyze symptoms and recommend specialties.
@@ -452,13 +341,10 @@ services:
     image: arogya/ai-symptom-checker:latest
     container_name: arogya-ai-symptom-checker
     restart: on-failure:3
-    depends_on:
-      mongodb:
-        condition: service_healthy
     environment:
       PORT: 8089
       NODE_ENV: production
-      MONGO_URI: mongodb://arogya:arogya_secret@mongodb:27017/arogya_ai?authSource=admin
+      MONGO_URI: ${AI_MONGO_URI}
       JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
       # OpenRouter — set OPENROUTER_API_KEY in your shell or .env file next to this file
       AI_API_KEY: ${AI_API_KEY}
@@ -474,11 +360,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
- 
+
   # ===========================================================================
   # GATEWAY & FRONTEND
   # ===========================================================================
- 
+
   # -------------------------------------------------------------------------
   # API Gateway — Node.js/Express — Port 3000
   # Single entry point for all frontend requests.
@@ -523,10 +409,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
- 
+
   # -------------------------------------------------------------------------
-  # Web Frontend — React + Vite dev server — Port 5173
-  # Proxies /api/* to api-gateway via GATEWAY_URL env var.
+  # Web Frontend — React + Nginx production image — Port 8080
+  # Proxies /api/* to api-gateway and /api/v1/* + /socket.io/* to telemedicine.
   # -------------------------------------------------------------------------
   web:
     build:
@@ -538,12 +424,7 @@ services:
     depends_on:
       api-gateway:
         condition: service_healthy
-    environment:
-      # Vite proxy target: forwards /api/* to API gateway inside Docker network
-      GATEWAY_URL: http://api-gateway:3000
     ports:
-      - "5173:5173"
+      - "8080:8080"
     networks:
       - arogya-net
- 
- 

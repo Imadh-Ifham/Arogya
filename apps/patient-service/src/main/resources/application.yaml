@@ -3,9 +3,7 @@ server:
 
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/arogya_patients}
-    username: ${SPRING_DATASOURCE_USERNAME:arogya}
-    password: ${SPRING_DATASOURCE_PASSWORD:arogya_secret}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/arogya_patients?user=arogya&password=arogya_secret}
   servlet:
     multipart:
       max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:10MB}
