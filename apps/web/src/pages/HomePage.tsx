@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Activity,
   Calendar,
@@ -11,12 +11,6 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import ThemeToggle from "../components/ThemeToggle";
-import {
-  getRoleHomePath,
-  setFrontendRole,
-  useFrontendRole,
-  type FrontendRole,
-} from "../app/frontendRole";
 
 type Feature = { icon: React.ElementType; title: string; desc: string };
 type Step = {
@@ -56,14 +50,6 @@ function HeroImage() {
 }
 
 export default function HomePage() {
-  const navigate = useNavigate();
-  const currentRole = useFrontendRole();
-
-  const chooseRole = (role: FrontendRole) => {
-    setFrontendRole(role);
-    navigate(getRoleHomePath(role));
-  };
-
   const features = useMemo<Feature[]>(
     () => [
       {
@@ -126,27 +112,18 @@ export default function HomePage() {
           </Link>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <button
-              type="button"
-              onClick={() => chooseRole("patient")}
-              className="px-4 py-2 text-sm text-foreground border border-border rounded-lg hover:bg-secondary transition-colors"
+            <Link
+              to="/login"
+              className="px-4 py-2 text-sm text-foreground hover:text-primary transition-colors"
             >
-              Patient
-            </button>
-            <button
-              type="button"
-              onClick={() => chooseRole("doctor")}
-              className="px-4 py-2 text-sm text-foreground border border-border rounded-lg hover:bg-secondary transition-colors"
-            >
-              Doctor
-            </button>
-            <button
-              type="button"
-              onClick={() => chooseRole("admin")}
+              Login
+            </Link>
+            <Link
+              to="/register"
               className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
             >
-              Admin
-            </button>
+              Get Started
+            </Link>
           </div>
         </div>
       </nav>
@@ -167,36 +144,19 @@ export default function HomePage() {
               AI-powered health suggestions — all from the comfort of your home.
             </p>
             <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => chooseRole("patient")}
+              <Link
+                to="/register?role=patient"
                 className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
               >
-                Continue as Patient
-              </button>
-              <button
-                type="button"
-                onClick={() => chooseRole("doctor")}
+                Register as Patient
+              </Link>
+              <Link
+                to="/register?role=doctor"
                 className="px-6 py-3 bg-card text-foreground border border-border rounded-lg hover:bg-secondary transition-colors"
               >
-                Continue as Doctor
-              </button>
-              <button
-                type="button"
-                onClick={() => chooseRole("admin")}
-                className="px-6 py-3 bg-card text-foreground border border-border rounded-lg hover:bg-secondary transition-colors"
-              >
-                Continue as Admin
-              </button>
+                Register as Doctor
+              </Link>
             </div>
-            {currentRole && (
-              <p className="text-sm text-muted-foreground mt-4">
-                Current role:{" "}
-                <span className="capitalize text-foreground">
-                  {currentRole}
-                </span>
-              </p>
-            )}
           </div>
           <div className="relative">
             <HeroImage />

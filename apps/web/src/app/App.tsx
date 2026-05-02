@@ -5,6 +5,9 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { useAppDispatch } from "./hooks";
+import { fetchMeThunk } from "../store/auth/auth.thunk";
+import { forceLogout } from "../store/auth/auth.slice";
 import { applyTheme, getInitialTheme } from "./theme";
 
 import LoginPage from "../pages/LoginPage";
@@ -17,8 +20,6 @@ import PatientProfilePage from "../pages/PatientProfilePage";
 import DoctorSearchPage from "../pages/DoctorSearchPage";
 import SymptomCheckerPage from "../pages/SymptomCheckerPage";
 import ConsultationPage from "../pages/ConsultationPage";
-import TelemedicineDashboardPage from "../pages/TelemedicineDashboardPage";
-import TelemedicineRoomPage from "../pages/TelemedicineRoomPage.tsx";
 import DoctorDashboardPage from "../pages/DoctorDashboardPage";
 import DoctorProfilePage from "../pages/DoctorProfilePage";
 import DoctorAvailabilityPage from "../pages/DoctorAvailabilityPage";
@@ -30,10 +31,24 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import HomePage from "../pages/HomePage";
 
 function AppRoutes() {
+  const dispatch = useAppDispatch();
+
+  // Rehydrate user profile on app load if a token exists in localStorage
+  useEffect(() => {
+    dispatch(fetchMeThunk());
+  }, [dispatch]);
+
   // Apply saved/system theme early in app lifecycle
   useEffect(() => {
     applyTheme(getInitialTheme());
   }, []);
+
+  // Listen for forced logout events fired by the axios interceptor
+  useEffect(() => {
+    const handler = () => dispatch(forceLogout());
+    window.addEventListener("auth:logout", handler);
+    return () => window.removeEventListener("auth:logout", handler);
+  }, [dispatch]);
 
   return (
     <Routes>
@@ -49,7 +64,7 @@ function AppRoutes() {
       <Route
         path="/book/:slotId"
         element={
-          <ProtectedRoute requiredRole="patient">
+          <ProtectedRoute>
             <BookPage />
           </ProtectedRoute>
         }
@@ -57,7 +72,7 @@ function AppRoutes() {
       <Route
         path="/appointments"
         element={
-          <ProtectedRoute requiredRole="patient">
+          <ProtectedRoute>
             <AppointmentsPage />
           </ProtectedRoute>
         }
@@ -65,7 +80,7 @@ function AppRoutes() {
       <Route
         path="/appointments/:id"
         element={
-          <ProtectedRoute requiredRole="patient">
+          <ProtectedRoute>
             <AppointmentDetailPage />
           </ProtectedRoute>
         }
@@ -73,31 +88,15 @@ function AppRoutes() {
       <Route
         path="/appointments/:id/consultation"
         element={
-          <ProtectedRoute requiredRole="patient">
+          <ProtectedRoute>
             <ConsultationPage />
           </ProtectedRoute>
         }
-      />
-      <Route
-        path="/telemedicine/consultations/:id"
-        element={
-          <ProtectedRoute requiredRole="patient">
-            <ConsultationPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/patient/telemedicine/consultations/:id"
-        element={<ConsultationPage />}
-      />
-      <Route
-        path="/patient/telemedicine/rooms/:roomId"
-        element={<TelemedicineRoomPage />}
       />
       <Route
         path="/profile"
         element={
-          <ProtectedRoute requiredRole="patient">
+          <ProtectedRoute>
             <PatientProfilePage />
           </ProtectedRoute>
         }
@@ -105,47 +104,25 @@ function AppRoutes() {
       <Route
         path="/symptom-checker"
         element={
-          <ProtectedRoute requiredRole="patient">
+          <ProtectedRoute>
             <SymptomCheckerPage />
           </ProtectedRoute>
         }
-      />
-
-      {/* Telemedicine */}
-      <Route
-        path="/telemedicine"
-        element={<Navigate to="/patient/telemedicine" replace />}
-      />
-      <Route
-        path="/patient/telemedicine"
-        element={<TelemedicineDashboardPage audience="patient" />}
       />
 
       {/* Doctor routes */}
       <Route
         path="/doctor/appointments/:id/consultation"
         element={
-          <ProtectedRoute requiredRole="doctor">
+          <ProtectedRoute>
             <ConsultationPage />
           </ProtectedRoute>
         }
       />
       <Route
-        path="/doctor/telemedicine/consultations/:id"
-        element={<ConsultationPage />}
-      />
-      <Route
-        path="/doctor/telemedicine/rooms/:roomId"
-        element={<TelemedicineRoomPage />}
-      />
-      <Route
-        path="/doctor/telemedicine"
-        element={<TelemedicineDashboardPage audience="doctor" />}
-      />
-      <Route
         path="/doctor/dashboard"
         element={
-          <ProtectedRoute requiredRole="doctor">
+          <ProtectedRoute>
             <DoctorDashboardPage />
           </ProtectedRoute>
         }
@@ -153,7 +130,7 @@ function AppRoutes() {
       <Route
         path="/doctor/profile"
         element={
-          <ProtectedRoute requiredRole="doctor">
+          <ProtectedRoute>
             <DoctorProfilePage />
           </ProtectedRoute>
         }
@@ -161,7 +138,7 @@ function AppRoutes() {
       <Route
         path="/doctor/availability"
         element={
-          <ProtectedRoute requiredRole="doctor">
+          <ProtectedRoute>
             <DoctorAvailabilityPage />
           </ProtectedRoute>
         }
@@ -169,7 +146,7 @@ function AppRoutes() {
       <Route
         path="/doctor/appointments"
         element={
-          <ProtectedRoute requiredRole="doctor">
+          <ProtectedRoute>
             <DoctorAppointmentsPage />
           </ProtectedRoute>
         }

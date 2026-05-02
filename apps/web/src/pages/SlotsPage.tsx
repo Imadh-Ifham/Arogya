@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { fetchSlotsThunk } from "../store/appointment/appointment.thunk";
 import Layout from "../components/Layout";
-import { useFrontendRole } from "../app/frontendRole";
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-IN", {
@@ -15,7 +14,7 @@ function formatDateTime(iso: string) {
 export default function SlotsPage() {
   const dispatch = useAppDispatch();
   const { slots, slotsLoading, error } = useAppSelector((s) => s.appointment);
-  const role = useFrontendRole();
+  const { accessToken } = useAppSelector((s) => s.auth);
 
   const [dateFilter, setDateFilter] = useState("");
 
@@ -99,27 +98,19 @@ export default function SlotsPage() {
                 LKR{Number(slot.fee).toLocaleString("en-IN")}
               </p>
 
-              {role === "patient" ? (
+              {accessToken ? (
                 <Link
                   to={`/book/${slot.id}`}
                   className="mt-auto text-center bg-primary text-primary-foreground text-sm py-2 rounded-lg hover:opacity-90 transition-opacity"
                 >
                   Book Slot
                 </Link>
-              ) : role ? (
-                <button
-                  type="button"
-                  disabled
-                  className="mt-auto text-center border border-border text-muted-foreground text-sm py-2 rounded-lg cursor-not-allowed"
-                >
-                  Switch to patient role to book
-                </button>
               ) : (
                 <Link
                   to="/login"
                   className="mt-auto text-center border border-border text-foreground text-sm py-2 rounded-lg hover:bg-secondary transition-colors"
                 >
-                  Choose role to book
+                  Login to book
                 </Link>
               )}
             </div>

@@ -1,34 +1,26 @@
 import { Link, useNavigate } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
+import { logoutThunk } from "../store/auth/auth.thunk";
 import ThemeToggle from "./ThemeToggle";
-import {
-  clearFrontendRole,
-  getRoleHomePath,
-  setFrontendRole,
-  useFrontendRole,
-  type FrontendRole,
-} from "../app/frontendRole";
 
 export default function Navbar() {
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const role = useFrontendRole();
+  const { user, accessToken } = useAppSelector((s) => s.auth);
 
-  const isDoctor = role === "doctor";
-  const isAdmin = role === "admin";
+  const isDoctor = user?.role === "doctor";
 
-  const setRole = (nextRole: FrontendRole) => {
-    setFrontendRole(nextRole);
-    navigate(getRoleHomePath(nextRole));
-  };
-
-  const handleLogout = () => {
-    clearFrontendRole();
-    navigate("/", { replace: true });
+  const handleLogout = async () => {
+    await dispatch(logoutThunk());
+    navigate("/login");
   };
 
   return (
     <nav className="bg-card border-b border-border px-6 py-3 flex items-center justify-between">
       <Link
-        to={role ? getRoleHomePath(role) : "/"}
+        to={
+          accessToken ? (isDoctor ? "/doctor/dashboard" : "/appointments") : "/"
+        }
         className="text-xl font-semibold text-foreground tracking-tight"
       >
         Arogya
@@ -78,7 +70,7 @@ export default function Navbar() {
             >
               Symptom Checker
             </Link>
-            {role === "patient" && (
+            {accessToken && (
               <>
                 <Link
                   to="/appointments"
@@ -97,68 +89,39 @@ export default function Navbar() {
           </>
         )}
 
-        {isAdmin && (
-          <Link
-            to="/admin/dashboard"
-            className="hover:text-foreground transition-colors"
-          >
-            Admin Dashboard
-          </Link>
-        )}
-
         <ThemeToggle />
 
-        {role ? (
+        {accessToken ? (
           <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-1">
-              {(["patient", "doctor", "admin"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setRole(option)}
-                  className={`px-2 py-1 rounded-md border text-xs capitalize transition-colors ${
-                    role === option
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-foreground border-border hover:bg-secondary"
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-            <span className="capitalize bg-secondary text-foreground px-2 py-0.5 rounded-full border border-border text-xs">
-              {role}
-            </span>
+            {user && (
+              <span className="text-muted-foreground text-xs">
+                {user.firstName ?? user.email}{" "}
+                <span className="capitalize bg-secondary text-foreground px-2 py-0.5 rounded-full border border-border">
+                  {user.role}
+                </span>
+              </span>
+            )}
             <button
               onClick={handleLogout}
               className="text-red-500 hover:text-red-700 transition-colors"
             >
-              Clear Role
+              Logout
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setRole("patient")}
-              className="border border-border text-foreground px-3 py-1.5 rounded-lg hover:bg-secondary transition-colors"
+            <Link
+              to="/login"
+              className="hover:text-foreground transition-colors"
             >
-              Patient
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole("doctor")}
-              className="border border-border text-foreground px-3 py-1.5 rounded-lg hover:bg-secondary transition-colors"
-            >
-              Doctor
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole("admin")}
+              Login
+            </Link>
+            <Link
+              to="/register"
               className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity"
             >
-              Admin
-            </button>
+              Register
+            </Link>
           </div>
         )}
       </div>

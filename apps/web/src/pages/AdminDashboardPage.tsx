@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
+import { logoutThunk } from "../store/auth/auth.thunk";
 import { useNavigate } from "react-router-dom";
-import { clearFrontendRole, useFrontendRole } from "../app/frontendRole";
 import {
   Activity,
   CheckCircle,
@@ -969,13 +970,14 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function AdminDashboardPage() {
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const role = useFrontendRole();
+  const { user } = useAppSelector((s) => s.auth);
   const [tab, setTab] = useState<Tab>("overview");
 
-  const handleLogout = () => {
-    clearFrontendRole();
-    navigate("/", { replace: true });
+  const handleLogout = async () => {
+    await dispatch(logoutThunk());
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -990,7 +992,7 @@ export default function AdminDashboardPage() {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-muted-foreground hidden sm:block">
-            Role: {role ?? "none"}
+            {user?.firstName} ({user?.email})
           </span>
           <button
             onClick={handleLogout}
