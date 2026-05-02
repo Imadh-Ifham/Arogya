@@ -90,3 +90,24 @@ export const getMeController = async (
     next(error);
   }
 };
+
+// Internal service-to-service endpoint — no JWT required.
+// Returns minimal user contact info for notification dispatch.
+// GET /api/auth/internal/users/:userId
+export const getInternalUserController = async (
+  req: Request<{ userId: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const profile = await authService.getProfile(req.params.userId);
+    sendSuccess(res, {
+      id: (profile as any)._id?.toString() ?? req.params.userId,
+      email: (profile as any).email,
+      firstName: (profile as any).firstName,
+      lastName: (profile as any).lastName,
+    }, "User fetched successfully");
+  } catch (error) {
+    next(error);
+  }
+};

@@ -20,18 +20,20 @@ const STATUS_STYLES: Record<AppointmentStatus, string> = {
   CANCELLED:         "bg-red-50     text-red-700    border-red-200",
   COMPLETED:         "bg-green-50   text-green-700  border-green-200",
   NO_SHOW:           "bg-gray-100   text-gray-600   border-gray-200",
+  EXPIRED:           "bg-gray-100   text-gray-500   border-gray-200",
 };
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   PENDING:           "Pending",
-  AWAITING_PAYMENT:  "Awaiting Payment",
-  PAYMENT_COMPLETED: "Payment Received",
-  ACCEPTED:          "Accepted",
+  AWAITING_PAYMENT:  "Payment Pending",
+  PAYMENT_COMPLETED: "Awaiting Approval",
+  ACCEPTED:          "Approved",
   REJECTED:          "Rejected",
   CONFIRMED:         "Confirmed",
   CANCELLED:         "Cancelled",
   COMPLETED:         "Completed",
   NO_SHOW:           "No Show",
+  EXPIRED:           "Expired",
 };
 
 function formatDateTime(iso: string) {
@@ -56,11 +58,14 @@ export default function DoctorAppointmentsPage() {
     }
   };
 
-  // Only PAYMENT_COMPLETED appointments can be accepted/rejected
+  // PHYSICAL appointments: PAYMENT_COMPLETED means payment confirmed via Stripe → doctor can act
+  // ONLINE appointments: PAYMENT_COMPLETED also means payment confirmed → doctor can act
   const awaitingReview = doctorAppointments.filter(
     (a) => a.status === "PAYMENT_COMPLETED",
   );
-  // Unpaid appointments are visible but the doctor can't act yet
+  // Pending/in-flight payment — patient is in the process of paying (transient Stripe state)
+  // For PHYSICAL: AWAITING_PAYMENT means patient is on the Stripe checkout page
+  // For ONLINE: AWAITING_PAYMENT or PENDING means not yet paid
   const unpaidAppointments = doctorAppointments.filter(
     (a) => a.status === "PENDING" || a.status === "AWAITING_PAYMENT",
   );
@@ -190,11 +195,11 @@ export default function DoctorAppointmentsPage() {
           </section>
         )}
 
-        {/* ── Unpaid appointments (patient hasn't completed payment yet) ── */}
+        {/* ── Unpaid appointments (payment not yet confirmed) ── */}
         {unpaidAppointments.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Awaiting Patient Payment ({unpaidAppointments.length})
+              Payment In Progress ({unpaidAppointments.length})
             </h2>
             <div className="space-y-3">
               {unpaidAppointments.map((apt) => (
@@ -224,7 +229,9 @@ export default function DoctorAppointmentsPage() {
                     </span>
                   </div>
                   <p className="text-xs text-amber-600 mt-2">
-                    Waiting for the patient to complete payment before you can review.
+                    {apt.appointmentType === "PHYSICAL"
+                      ? "Payment is being processed — you will be able to approve or reject once confirmed."
+                      : "Waiting for the patient to complete payment before you can review."}
                   </p>
                 </div>
               ))}

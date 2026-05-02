@@ -249,7 +249,9 @@ export default function ConsultationPage() {
           const noteList = await fetchClinicalNotes(consult.id);
           setNotes(noteList);
         }
-      } catch {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[ConsultationPage] Bootstrap error:", msg, err);
         setPageError("Failed to load consultation. Please try again.");
       } finally {
         setLoading(false);

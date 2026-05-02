@@ -1,9 +1,11 @@
 import app from "./src/app";
 import { connectDatabase } from "./src/config/database";
+import { seedDefaultTemplates } from "./src/config/seedTemplates";
 import { env } from "./src/config/env";
 
 const start = async (): Promise<void> => {
   await connectDatabase();
+  await seedDefaultTemplates();
 
   app.listen(env.port, () => {
     console.log(

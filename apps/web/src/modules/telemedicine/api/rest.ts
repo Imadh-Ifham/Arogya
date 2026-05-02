@@ -177,14 +177,11 @@ export async function fetchConsultationById(
 
 export async function fetchConsultationByAppointment(
   appointmentId: string,
-  role: ChatRole,
-  userId: string,
+  _role?: ChatRole,
+  _userId?: string,
 ): Promise<ConsultationView | null> {
-  const list =
-    role === "doctor"
-      ? await fetchDoctorConsultations(userId)
-      : await fetchPatientConsultations(userId);
-  return list.find((c) => c.appointmentId === appointmentId) ?? null;
+  const { data } = await api.get(`/telemedicine/consultations/by-appointment/${appointmentId}`);
+  return (data.data ?? null) as ConsultationView | null;
 }
 
 export async function updateConsultationStatus(

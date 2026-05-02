@@ -22,6 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.scheduling.annotation.Scheduled;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -234,6 +237,34 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.ACCEPTED);
         Appointment saved = appointmentRepository.save(appointment);
 
+        // For ONLINE appointments: ensure a telemedicine session exists so the
+        // consultation appears on the telemedicine dashboard immediately after approval.
+        // If a session was already created at booking time (meetingUrl present) this
+        // call is idempotent — the telemedicine service returns the existing URL.
+        if (saved.getAppointmentType() == AppointmentType.ONLINE) {
+            try {
+                String startsAt = null;
+                AppointmentSlot slot = slotRepository.findById(saved.getSlotId()).orElse(null);
+                if (slot != null && slot.getStartTime() != null) {
+                    startsAt = slot.getStartTime().toString();
+                }
+                String meetingUrl = telemedicineClient.createSession(
+                        saved.getId(), saved.getPatientId(), doctorId, startsAt);
+                if (saved.getMeetingUrl() == null || saved.getMeetingUrl().isBlank()) {
+                    saved.setMeetingUrl(meetingUrl);
+                    saved = appointmentRepository.save(saved);
+                }
+                log.info("Telemedicine session ensured for accepted appointment {} — url: {}",
+                        saved.getId(), meetingUrl);
+            } catch (RuntimeException e) {
+                // Non-fatal: approval succeeds even if telemedicine service is temporarily
+                // unavailable. The session will be created on-demand when the doctor opens
+                // the consultation page.
+                log.warn("Could not ensure telemedicine session for appointment {}: {}",
+                        saved.getId(), e.getMessage());
+            }
+        }
+
         notificationClient.sendAppointmentAccepted(saved.getId(), saved.getPatientId(), doctorId);
 
         return AppointmentResponse.from(saved);
@@ -434,6 +465,39 @@ public class AppointmentService {
 
         appointment.setStatus(AppointmentStatus.COMPLETED);
         return AppointmentResponse.from(appointmentRepository.save(appointment));
+    }
+
+    // =========================================================================
+    // Expiry: PHYSICAL appointments whose slot date has passed without doctor action
+    // =========================================================================
+
+    /**
+     * Runs every 15 minutes. Marks PHYSICAL appointments as EXPIRED if:
+     * - Status is PAYMENT_COMPLETED (doctor never acted), AND
+     * - The appointment slot start time is in the past.
+     *
+     * ONLINE appointments are excluded — their lifecycle is managed differently
+     * through the telemedicine service.
+     */
+    @Scheduled(fixedRate = 15 * 60 * 1000)
+    @Transactional
+    public void expireStalePhysicalAppointments() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Appointment> stale = appointmentRepository
+                .findPhysicalAppointmentsPastSlotWithStatus(AppointmentType.PHYSICAL, AppointmentStatus.PAYMENT_COMPLETED, now);
+
+        if (stale.isEmpty()) return;
+
+        for (Appointment appointment : stale) {
+            appointment.setStatus(AppointmentStatus.EXPIRED);
+            // Release the slot so other patients can book it
+            slotRepository.findById(appointment.getSlotId()).ifPresent(slot -> {
+                slot.setStatus(SlotStatus.AVAILABLE);
+                slotRepository.save(slot);
+            });
+            appointmentRepository.save(appointment);
+            log.info("Appointment {} marked EXPIRED — slot time passed without doctor action", appointment.getId());
+        }
     }
 
     // =========================================================================

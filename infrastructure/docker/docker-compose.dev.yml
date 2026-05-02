@@ -40,7 +40,6 @@ networks:
   arogya-net:
     driver: bridge
     name: arogya-net
-
 # ---------------------------------------------------------------------------
 # Services
 # ---------------------------------------------------------------------------
@@ -85,7 +84,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
-
   # -------------------------------------------------------------------------
   # Notification Service — Node.js/Express — Port 3002
   # Sends SMS (Twilio) and email (SendGrid) on behalf of Appointment,
@@ -93,6 +91,9 @@ services:
   #
   # Twilio/SendGrid credentials are optional — when absent the service stubs
   # both providers and logs message bodies to stdout (safe for dev/CI).
+  #
+  # Uses the shared mongodb container (arogya-mongodb) for the
+  # arogya_notifications database — same credentials, separate DB name.
   #
   # REST API:
   #   POST /api/notifications/send        — dispatch a notification
@@ -117,7 +118,14 @@ services:
       # Internal service URLs — used to resolve patient/doctor contact details
       PATIENT_SERVICE_URL: http://patient-service:8082
       DOCTOR_SERVICE_URL: http://doctor-service:8083
-      # SendGrid — leave blank to use the console stub (safe for dev/CI)
+      AUTH_SERVICE_URL: http://auth-service:8081
+      # Gmail SMTP — takes priority over SendGrid when SMTP_USER + SMTP_PASS are set.
+      # Use a Gmail App Password (Google Account → Security → App Passwords).
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      # SendGrid — fallback when SMTP creds are not set.
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
       SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@arogya.health}
       SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-Arogya Health}
@@ -329,10 +337,10 @@ services:
 
   # -------------------------------------------------------------------------
   # AI Symptom Checker — Fastify/Node.js — Port 8089
-  # Calls AI API (via OpenRouter) to analyze symptoms and recommend specialties.
+  # Calls Groq API to analyze symptoms and recommend specialties.
   #
-  # REQUIRED: Set OPENROUTER_API_KEY in your shell or .env file next to this file:
-  #   export OPENROUTER_API_KEY=sk-or-v1-...
+  # REQUIRED: Set AI_API_KEY in your shell or .env file next to this file:
+  #   export AI_API_KEY=gsk_...
   # -------------------------------------------------------------------------
   ai-symptom-checker:
     build:
@@ -346,10 +354,10 @@ services:
       NODE_ENV: production
       MONGO_URI: ${AI_MONGO_URI}
       JWT_SECRET: changeme-use-a-real-256bit-secret-in-production
-      # OpenRouter — set OPENROUTER_API_KEY in your shell or .env file next to this file
+      # Groq API — set AI_API_KEY in your shell or .env file next to this file
       AI_API_KEY: ${AI_API_KEY}
-      AI_API_ENDPOINT: https://openrouter.ai/api/v1
-      AI_MODEL: ${AI_MODEL:-google/gemma-3-12b-it:free}
+      AI_API_ENDPOINT: https://api.groq.com/openai/v1
+      AI_MODEL: ${AI_MODEL:-llama-3.3-70b-versatile}
     ports:
       - "8089:8089"
     networks:

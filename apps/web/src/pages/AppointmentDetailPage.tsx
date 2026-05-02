@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { cancelAppointmentThunk, rescheduleAppointmentThunk } from "../store/appointment/appointment.thunk";
+import { cancelAppointmentThunk, rescheduleAppointmentThunk, devSimulatePaymentThunk } from "../store/appointment/appointment.thunk";
 import { fetchSlotsThunk } from "../store/appointment/appointment.thunk";
 import { fetchAppointment } from "../modules/appointment/api/rest";
 import type { Appointment, AppointmentStatus } from "../modules/appointment/api/rest";
@@ -16,25 +16,27 @@ function formatDateTime(iso: string) {
 const STATUS_STYLES: Record<AppointmentStatus, string> = {
   PENDING:           "bg-amber-50    text-amber-700  border-amber-200",
   AWAITING_PAYMENT:  "bg-orange-50   text-orange-700 border-orange-200",
-  PAYMENT_COMPLETED: "bg-teal-50     text-teal-700   border-teal-200",
+  PAYMENT_COMPLETED: "bg-blue-50     text-blue-700   border-blue-200",
   ACCEPTED:          "bg-green-50    text-green-700  border-green-200",
   REJECTED:          "bg-red-50      text-red-700    border-red-200",
   CONFIRMED:         "bg-teal-50     text-teal-700   border-teal-200",
   CANCELLED:         "bg-red-50      text-red-700    border-red-200",
   COMPLETED:         "bg-green-50    text-green-700  border-green-200",
   NO_SHOW:           "bg-gray-100    text-gray-600   border-gray-200",
+  EXPIRED:           "bg-gray-100    text-gray-500   border-gray-200",
 };
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   PENDING:           "Pending",
   AWAITING_PAYMENT:  "Awaiting Payment",
-  PAYMENT_COMPLETED: "Confirmed",
-  ACCEPTED:          "Accepted",
+  PAYMENT_COMPLETED: "Awaiting Approval",
+  ACCEPTED:          "Approved",
   REJECTED:          "Rejected",
   CONFIRMED:         "Confirmed",
   CANCELLED:         "Cancelled",
   COMPLETED:         "Completed",
   NO_SHOW:           "No Show",
+  EXPIRED:           "Expired",
 };
 
 export default function AppointmentDetailPage() {
@@ -83,7 +85,7 @@ export default function AppointmentDetailPage() {
     }
   };
 
-  // Patient can cancel while payment is pending or after payment (until doctor acts)
+  // Patient can cancel while payment is pending or after payment (until doctor acts or appointment expires)
   const canCancel =
     appointment?.status === "PENDING" ||
     appointment?.status === "AWAITING_PAYMENT" ||
@@ -172,19 +174,34 @@ export default function AppointmentDetailPage() {
             )}
           </div>
 
+          {/* Awaiting approval banner — payment done, waiting for doctor to accept/reject */}
+          {appointment.status === "PAYMENT_COMPLETED" && appointment.appointmentType === "PHYSICAL" && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-1">
+              <p className="text-sm font-medium text-blue-800">Payment received — awaiting doctor approval</p>
+              <p className="text-xs text-blue-600">
+                Your payment has been confirmed. The doctor will review and approve or reject your appointment shortly.
+              </p>
+            </div>
+          )}
+
           {/* Payment banner — shown while payment is still required */}
-          {appointment.status === "AWAITING_PAYMENT" && appointment.checkoutUrl && (
+          {appointment.status === "AWAITING_PAYMENT" && (
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-2">
               <p className="text-sm font-medium text-orange-800">Payment required to confirm your booking</p>
               <p className="text-xs text-orange-600">
                 Your slot is reserved. Complete the payment within the session window to secure your appointment.
               </p>
-              <a
-                href={appointment.checkoutUrl}
-                className="inline-block mt-1 text-sm bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors"
-              >
-                Complete Payment →
-              </a>
+              {appointment.paymentId && (
+                <button
+                  onClick={async () => {
+                    await dispatch(devSimulatePaymentThunk(appointment.paymentId!));
+                    fetchAppointment(id!).then(setAppointment).catch(() => {});
+                  }}
+                  className="inline-block mt-1 text-sm bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors"
+                >
+                  Confirm physical session
+                </button>
+              )}
             </div>
           )}
 
@@ -194,6 +211,22 @@ export default function AppointmentDetailPage() {
               <p className="text-sm font-medium text-red-700">This appointment was not accepted by the doctor.</p>
               <p className="text-xs text-red-500 mt-1">
                 You may book a new appointment with another available slot.
+              </p>
+              <Link
+                to="/slots"
+                className="inline-block mt-2 text-xs text-primary hover:underline"
+              >
+                Browse available slots →
+              </Link>
+            </div>
+          )}
+
+          {/* Expired — appointment date passed without doctor action */}
+          {appointment.status === "EXPIRED" && (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+              <p className="text-sm font-medium text-gray-700">This appointment has expired.</p>
+              <p className="text-xs text-gray-500 mt-1">
+                The appointment date passed before the doctor reviewed your request. You may book again.
               </p>
               <Link
                 to="/slots"

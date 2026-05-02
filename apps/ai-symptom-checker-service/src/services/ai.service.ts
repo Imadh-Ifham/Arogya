@@ -4,6 +4,30 @@ import type { SymptomInput, AIAnalysisResult, UrgencyLevel, Likelihood } from ".
 const FALLBACK_DISCLAIMER =
   "This is a preliminary AI-assisted analysis and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider.";
 
+const SYSTEM_PROMPT = `You are a medical triage assistant. Analyze the patient's symptoms and respond ONLY with a raw JSON object. No markdown, no code fences, no explanation — just the JSON object starting with { and ending with }.
+
+Use EXACTLY this structure (all fields required):
+{
+  "urgencyLevel": "routine",
+  "preliminarySuggestions": ["specific suggestion based on symptoms"],
+  "possibleConditions": [
+    { "name": "Condition Name", "likelihood": "high", "description": "Brief description" }
+  ],
+  "recommendedSpecialties": [
+    { "specialty": "Specialty Name", "reason": "Why this specialty" }
+  ],
+  "selfCareAdvice": ["specific self-care tip"],
+  "warningFlags": ["warning sign to watch for"],
+  "disclaimer": "This is a preliminary AI-assisted analysis and is not a substitute for professional medical advice."
+}
+
+Rules:
+- urgencyLevel MUST be exactly one of: "emergency", "urgent", "routine", "self-care"
+- likelihood MUST be exactly one of: "high", "medium", "low"
+- possibleConditions MUST be an array of objects with name, likelihood, description fields
+- recommendedSpecialties MUST be an array of objects with specialty and reason fields
+- Base every answer on the specific symptoms given — never use generic placeholder text`;
+
 function buildUserPrompt(input: SymptomInput): string {
   const age = input.age !== undefined ? String(input.age) : "Not provided";
   const gender = input.gender ?? "Not provided";
@@ -19,22 +43,12 @@ function buildUserPrompt(input: SymptomInput): string {
   );
 }
 
-const SYSTEM_PROMPT =
-  'You are a medical triage assistant. Analyze the patient\'s symptoms and respond ' +
-  'ONLY with a valid JSON object. Never include markdown, code blocks, or explanation outside JSON. ' +
-  'The JSON must have these fields: urgencyLevel ("emergency"|"urgent"|"routine"|"self-care"), ' +
-  'preliminarySuggestions (string[]), possibleConditions (array of {name, likelihood, description}), ' +
-  'recommendedSpecialties (array of {specialty, reason}), selfCareAdvice (string[]), ' +
-  'warningFlags (string[]), disclaimer (string).';
-
 function extractJson(raw: string): string {
-  // Strip markdown code fences if present
   let cleaned = raw
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```\s*$/i, "")
     .trim();
 
-  // If it still doesn't start with '{', find the first '{' and last '}'
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start !== -1 && end !== -1 && end > start) {
@@ -55,6 +69,29 @@ function isValidUrgencyLevel(value: unknown): value is UrgencyLevel {
 
 function isValidLikelihood(value: unknown): value is Likelihood {
   return value === "high" || value === "medium" || value === "low";
+}
+
+function normalizeLikelihood(value: unknown): Likelihood {
+  if (value === "high" || value === "medium" || value === "low") return value;
+  if (typeof value === "number") {
+    if (value >= 0.6) return "high";
+    if (value >= 0.3) return "medium";
+    return "low";
+  }
+  return "low";
+}
+
+function normalizeResponse(parsed: unknown): unknown {
+  if (typeof parsed !== "object" || parsed === null) return parsed;
+  const obj = parsed as Record<string, unknown>;
+  if (Array.isArray(obj.possibleConditions)) {
+    obj.possibleConditions = obj.possibleConditions.map((c: unknown) => {
+      if (typeof c !== "object" || c === null) return c;
+      const cond = c as Record<string, unknown>;
+      return { ...cond, likelihood: normalizeLikelihood(cond.likelihood) };
+    });
+  }
+  return obj;
 }
 
 function validateAIResult(parsed: unknown): parsed is AIAnalysisResult {
@@ -129,18 +166,15 @@ export async function analyzeSymptoms(
   const client = new OpenAI({
     apiKey: process.env.AI_API_KEY as string,
     baseURL: process.env.AI_API_ENDPOINT as string,
-    defaultHeaders: {
-      "HTTP-Referer": "https://arogya.health",
-      "X-Title": "Arogya Symptom Checker",
-    },
   });
 
   const model = process.env.AI_MODEL as string;
+  console.log(`[ai.service] Using model: ${model} @ ${process.env.AI_API_ENDPOINT}`);
   const userPrompt = buildUserPrompt(input);
   const startTime = Date.now();
 
   const MAX_RETRIES = 3;
-  const RETRY_DELAY_MS = 10000; // 10s — enough for Gemini free-tier rate limit reset
+  const RETRY_DELAY_MS = 5000;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -171,6 +205,8 @@ export async function analyzeSymptoms(
           status: "partial",
         };
       }
+
+      parsed = normalizeResponse(parsed);
 
       if (!validateAIResult(parsed)) {
         console.error("[ai.service] AI response failed shape validation:", JSON.stringify(parsed).slice(0, 300));
@@ -252,7 +288,6 @@ export async function analyzeSymptoms(
     }
   }
 
-  // Should never reach here, but TypeScript requires a return
   return {
     aiResult: buildFallbackResult(),
     rawPrompt: userPrompt,

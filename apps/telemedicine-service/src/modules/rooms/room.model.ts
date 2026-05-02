@@ -39,7 +39,9 @@ const consultationRoomSchema = new Schema<ConsultationRoomDocument>(
   },
 );
 
-consultationRoomSchema.index({ doctorId: 1, patientId: 1 }, { unique: true });
+// Non-unique index for efficient lookups by doctor or patient — allows multiple
+// rooms per doctor-patient pair (each consultation session gets its own room).
+consultationRoomSchema.index({ doctorId: 1, patientId: 1 });
 
 export const ConsultationRoomModel = model<ConsultationRoomDocument>(
   "ConsultationRoom",

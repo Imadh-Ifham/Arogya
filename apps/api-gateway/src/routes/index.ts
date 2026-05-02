@@ -15,7 +15,7 @@ const stripUserHeaders = (req: Request, _res: Response, next: NextFunction) => {
 };
 
 // ─── Proxy factory ────────────────────────────────────────────────────────────
-const proxy = (target: string, pathRewrite?: Record<string, string>) =>
+const proxy = (target: string, pathRewrite?: Record<string, string> | ((path: string) => string)) =>
   createProxyMiddleware({
     target,
     changeOrigin: true,
@@ -52,29 +52,31 @@ const proxy = (target: string, pathRewrite?: Record<string, string>) =>
 // ─── Path rewrite helpers ─────────────────────────────────────────────────────
 // Express router.use('/api/foo', handler) strips the '/api/foo' prefix from
 // req.url before the next middleware sees it.  http-proxy-middleware then uses
-// that stripped req.url to build the upstream path, so we must restore the
-// prefix via pathRewrite.
-//
-// Two rules are needed because the root path ('/') is a special case:
-//   '^/(.+)'  → sub-paths  e.g. /login  → /api/auth/login
-//   '^/$'     → root path  e.g. /       → /api/appointments   (no trailing slash)
-//
-// Without the second rule a POST to /api/appointments would reach the upstream
-// as /api/appointments/ — Spring Boot 3 disabled trailing-slash matching and
-// returns 500 instead of 201 for that path.
-const authRewrite         = { '^/(.+)': '/api/auth/$1',             '^/$': '/api/auth' };
-const appointmentRewrite  = { '^/(.+)': '/api/appointments/$1',     '^/$': '/api/appointments' };
-const doctorRewrite       = { '^/(.+)': '/api/doctors/$1',          '^/$': '/api/doctors' };
-const adminRewrite        = { '^/(.+)': '/api/admin/$1',            '^/$': '/api/admin' };
-const adminAuthRewrite    = { '^/(.+)': '/api/auth/admin/users/$1', '^/$': '/api/auth/admin/users' };
-const adminApptRewrite    = { '^/(.+)': '/api/appointments/admin/$1', '^/$': '/api/appointments/admin' };
-const adminPayRewrite     = { '^/(.+)': '/api/payments/admin/$1',   '^/$': '/api/payments/admin' };
-const patientRewrite      = { '^/(.+)': '/patients/$1',             '^/$': '/patients' };
-const telemedicineRewrite = { '^/(.+)': '/api/v1/telemedicine/$1', '^/$': '/api/v1/telemedicine' };
-const aiRewrite           = { '^/(.+)': '/ai/$1',                   '^/$': '/ai' };
-const notificationRewrite = { '^/(.+)': '/api/notifications/$1',    '^/$': '/api/notifications' };
-const paymentRewrite      = { '^/(.+)': '/api/payments/$1',         '^/$': '/api/payments' };
-const slotRewrite         = { '^/(.+)': '/api/appointments/slots/$1', '^/$': '/api/appointments/slots' };
+// that stripped req.url (including query string) to build the upstream path,
+// so we must restore the prefix via pathRewrite.
+// pathRewrite receives req.url which includes the query string, so a function-based
+// rewriter is used to split path/query and reconstruct without an extra slash.
+const makeRewrite = (prefix: string) => (url: string) => {
+  const qIdx = url.indexOf('?');
+  const path  = qIdx === -1 ? url : url.slice(0, qIdx);
+  const query = qIdx === -1 ? '' : url.slice(qIdx);
+  const newPath = path === '/' ? prefix : `${prefix}${path}`;
+  return `${newPath}${query}`;
+};
+
+const authRewrite         = makeRewrite('/api/auth');
+const appointmentRewrite  = makeRewrite('/api/appointments');
+const doctorRewrite       = makeRewrite('/api/doctors');
+const adminRewrite        = makeRewrite('/api/admin');
+const adminAuthRewrite    = makeRewrite('/api/auth/admin/users');
+const adminApptRewrite    = makeRewrite('/api/appointments/admin');
+const adminPayRewrite     = makeRewrite('/api/payments/admin');
+const patientRewrite      = makeRewrite('/patients');
+const telemedicineRewrite = makeRewrite('/api/v1/telemedicine');
+const aiRewrite           = makeRewrite('/ai');
+const notificationRewrite = makeRewrite('/api/notifications');
+const paymentRewrite      = makeRewrite('/api/payments');
+const slotRewrite         = makeRewrite('/api/appointments/slots');
 
 // ─── Auth routes (public — no JWT needed) ─────────────────────────────────────
 router.use(

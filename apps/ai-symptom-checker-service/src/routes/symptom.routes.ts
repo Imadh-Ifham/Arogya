@@ -144,6 +144,7 @@ export async function symptomRoutes(
       disclaimer: serviceResult.aiResult.disclaimer,
       processingTimeMs: serviceResult.processingTimeMs,
       createdAt: now.toISOString(),
+      status: serviceResult.status,
     };
 
     return reply.code(200).send(response);
@@ -206,6 +207,7 @@ export async function symptomRoutes(
           (s.aiResult as { disclaimer?: string } | null)?.disclaimer ?? "",
         processingTimeMs: s.processingTimeMs,
         createdAt: (s.createdAt as Date).toISOString(),
+        status: (s.status as "completed" | "partial") === "partial" ? "partial" : "completed",
       }));
 
       return reply.code(200).send({
@@ -272,6 +274,7 @@ export async function symptomRoutes(
           (session.aiResult as { disclaimer?: string } | null)?.disclaimer ?? "",
         processingTimeMs: session.processingTimeMs,
         createdAt: (session.createdAt as Date).toISOString(),
+        status: (session.status as "completed" | "partial") === "partial" ? "partial" : "completed",
       };
 
       return reply.code(200).send(response);

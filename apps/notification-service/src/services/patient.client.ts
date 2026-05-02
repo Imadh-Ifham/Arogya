@@ -10,42 +10,74 @@ export interface PatientContact {
 }
 
 /**
- * Resolves patient contact details from Patient Service (Spring Boot, port 8082).
- * Called when a caller provides only a patientId and no contact fields.
+ * Resolves patient contact details by authUserId.
  *
- * Patient Service REST contract assumed:
- *   GET /api/patients/{id}
- *   Response: { id, firstName, lastName, email, phoneNumber, ... }
+ * The patientId passed from appointment-service is the auth-service userId
+ * (i.e. the JWT sub / authUserId), not the patient DB UUID.
  *
- * Returns null if the patient is not found or the service is unavailable,
- * so the caller can decide whether to fail or skip the notification.
+ * Resolution strategy:
+ *   1. GET /patients/profile/{authUserId} → firstName, lastName, phoneNumber
+ *   2. GET /api/auth/internal/users/{authUserId} → email
+ *
+ * Returns null if both services are unavailable.
  */
 export const resolvePatientContact = async (
   patientId: string,
 ): Promise<PatientContact | null> => {
+  let firstName = "";
+  let lastName: string | undefined;
+  let phone: string | undefined;
+  let email: string | undefined;
+
+  // Step 1 — fetch profile from patient-service (name + phone)
   try {
     const { data } = await axios.get(
-      `${env.patientServiceUrl}/api/patients/${patientId}`,
+      `${env.patientServiceUrl}/patients/profile/${patientId}`,
       { timeout: 5000 },
     );
 
-    // Patient Service wraps responses — handle both direct object and { data: {} }
-    const patient = data?.data ?? data;
+    // Patient service wraps in { success, data } via ApiResponse
+    const profile = data?.data ?? data;
 
-    return {
-      patientId,
-      firstName: patient.firstName ?? "",
-      lastName: patient.lastName,
-      email: patient.email,
-      // Patient Service uses phoneNumber; normalise to phone here
-      phone: patient.phoneNumber ?? patient.phone,
-    };
+    if (profile) {
+      firstName = profile.firstName ?? "";
+      lastName = profile.lastName ?? undefined;
+      phone = profile.phoneNumber ?? undefined;
+    }
   } catch (err: unknown) {
-    // Log but don't throw — notification dispatch decides what to do next
     console.warn(
-      `[PatientClient] Could not resolve contact for patient ${patientId}:`,
+      `[PatientClient] Could not fetch profile for patient ${patientId} from patient-service:`,
       err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // Step 2 — fetch email from auth-service (email lives in the users collection)
+  try {
+    const { data } = await axios.get(
+      `${env.authServiceUrl}/api/auth/internal/users/${patientId}`,
+      { timeout: 5000 },
+    );
+
+    const user = data?.data ?? data;
+    if (user?.email) {
+      email = user.email;
+      // Use auth-service name as fallback if patient profile had none
+      if (!firstName && user.firstName) firstName = user.firstName;
+      if (!lastName && user.lastName) lastName = user.lastName;
+    }
+  } catch (err: unknown) {
+    console.warn(
+      `[PatientClient] Could not fetch email for patient ${patientId} from auth-service:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  if (!email) {
+    console.warn(
+      `[PatientClient] No email resolved for patient ${patientId} — notification will be skipped`,
     );
     return null;
   }
+
+  return { patientId, firstName, lastName, email, phone };
 };
