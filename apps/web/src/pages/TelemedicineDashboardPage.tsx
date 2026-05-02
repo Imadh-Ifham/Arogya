@@ -398,7 +398,7 @@ export default function TelemedicineDashboardPage({
   const [error, setError] = useState<string | null>(null);
 
   const role: "doctor" | "patient" = audience;
-  const userId = role === "doctor" ? "1111111111" : "2222222222";
+  const userId = role === "doctor" ? "1234" : "5678";
 
   useEffect(() => {
     setLoading(true);

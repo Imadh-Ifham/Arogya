@@ -188,7 +188,7 @@ export default function ConsultationPage() {
   const role: "doctor" | "patient" = pathname.startsWith("/doctor/")
     ? "doctor"
     : "patient";
-  const userId = role === "doctor" ? "1111111111" : "2222222222";
+  const userId = role === "doctor" ? "1234" : "5678";
 
   // ── Page bootstrap state
   const [consultation, setConsultation] = useState<ConsultationView | null>(

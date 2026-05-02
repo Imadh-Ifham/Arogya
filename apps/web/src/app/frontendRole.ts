@@ -8,8 +8,8 @@ const ROLE_CHANGE_EVENT = "frontend-role:change";
 
 const VALID_ROLES: FrontendRole[] = ["patient", "doctor", "admin"];
 const ROLE_USER_IDS: Record<FrontendRole, string> = {
-  doctor: "1111111111",
-  patient: "2222222222",
+  doctor: "1234",
+  patient: "5678",
   admin: "3333333333",
 };
 

@@ -156,7 +156,7 @@ export default function TelemedicineRoomPage() {
   const { pathname } = useLocation();
 
   const role: Role = pathname.startsWith("/doctor/") ? "doctor" : "patient";
-  const userId = role === "doctor" ? "1111111111" : "2222222222";
+  const userId = role === "doctor" ? "1234" : "5678";
   const actor: TelemedicineActorContext = { id: userId, role };
 
   const [room, setRoom] = useState<ConsultationRoom | null>(null);
@@ -432,7 +432,7 @@ export default function TelemedicineRoomPage() {
 
         <div className="grid lg:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[360px_minmax(0,1fr)] gap-3 h-full min-h-0">
           <aside className="h-full min-h-0 flex flex-col gap-3 overflow-hidden">
-            <section className="bg-card border border-border rounded-xl p-3 flex flex-col min-h-0">
+            <section className="bg-card border border-border rounded-xl p-3 flex flex-col min-h-0 flex-[1.15]">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
                   <Video className="w-4 h-4" /> Sessions
@@ -483,7 +483,7 @@ export default function TelemedicineRoomPage() {
               </div>
             </section>
 
-            <section className="bg-card border border-border rounded-xl p-3 h-full min-h-0 overflow-y-auto">
+            <section className="bg-card border border-border rounded-xl p-3 flex-1 min-h-0 overflow-y-auto">
               {role === "doctor" ? (
                 <>
                   <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
