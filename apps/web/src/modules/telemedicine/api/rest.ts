@@ -1,4 +1,4 @@
-import api from "../../../lib/telemedicineApi";
+import api from "../../../lib/api";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -180,7 +180,9 @@ export async function fetchConsultationByAppointment(
   _role?: ChatRole,
   _userId?: string,
 ): Promise<ConsultationView | null> {
-  const { data } = await api.get(`/telemedicine/consultations/by-appointment/${appointmentId}`);
+  const { data } = await api.get(
+    `/telemedicine/consultations/by-appointment/${appointmentId}`,
+  );
   return (data.data ?? null) as ConsultationView | null;
 }
 

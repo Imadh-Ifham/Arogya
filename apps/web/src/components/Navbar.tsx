@@ -37,6 +37,12 @@ export default function Navbar() {
               Dashboard
             </Link>
             <Link
+              to="/doctor/telemedicine"
+              className="hover:text-foreground transition-colors"
+            >
+              Telemedicine
+            </Link>
+            <Link
               to="/doctor/profile"
               className="hover:text-foreground transition-colors"
             >
@@ -77,6 +83,12 @@ export default function Navbar() {
                   className="hover:text-foreground transition-colors"
                 >
                   My Appointments
+                </Link>
+                <Link
+                  to="/patient/telemedicine"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Telemedicine
                 </Link>
                 <Link
                   to="/profile"

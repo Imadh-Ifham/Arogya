@@ -71,7 +71,7 @@ services:
       MONGODB_URI: ${PAYMENT_MONGODB_URI}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-      FRONTEND_URL: http://localhost:5173
+      FRONTEND_URL: http://localhost:8080
       # Callback URL — payment-service POSTs here after Stripe webhook fires
       APPOINTMENT_SERVICE_URL: http://appointment-service:8084
     ports:

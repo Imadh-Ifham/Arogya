@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchDoctorRooms,
@@ -6,6 +6,7 @@ import {
 } from "../modules/telemedicine/api/rest";
 import type { ConsultationRoom } from "../modules/telemedicine/api/rest";
 import Layout from "../components/Layout";
+import { useAppSelector } from "../app/hooks";
 import {
   Video,
   AlertCircle,
@@ -46,6 +47,8 @@ type RoomUiState = {
   closed: boolean;
   expiresAt?: string;
 };
+
+type Audience = "doctor" | "patient";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString("en-IN", {
@@ -388,8 +391,16 @@ function DoctorRoomCard({
 export default function TelemedicineDashboardPage({
   audience,
 }: {
-  audience: "doctor" | "patient";
+  audience: Audience;
 }) {
+  const { user, accessToken } = useAppSelector((s) => s.auth);
+  const userRole = user?.role;
+  const userId = user?._id;
+  const isAuthenticated = Boolean(accessToken);
+  const isAuthorizedRole = userRole === "doctor" || userRole === "patient";
+  const hasAccess =
+    isAuthenticated && isAuthorizedRole && userRole === audience;
+
   const [rooms, setRooms] = useState<ConsultationRoom[]>([]);
   const [roomUiState, setRoomUiState] = useState<Record<string, RoomUiState>>(
     {},
@@ -397,10 +408,30 @@ export default function TelemedicineDashboardPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const role: "doctor" | "patient" = audience;
-  const userId = role === "doctor" ? "1234" : "5678";
+  const role: Audience = audience;
+  const fallbackPath = useMemo(() => {
+    if (!userRole) return "/";
+    if (userRole === "doctor") return "/doctor/telemedicine";
+    if (userRole === "patient") return "/patient/telemedicine";
+    return "/";
+  }, [userRole]);
 
   useEffect(() => {
+    if (!hasAccess || !userId) {
+      setLoading(false);
+      setRooms([]);
+      if (!isAuthenticated) {
+        setError("Please log in to view telemedicine rooms.");
+      } else if (!isAuthorizedRole) {
+        setError("Telemedicine is only available for patients and doctors.");
+      } else if (userRole !== audience) {
+        setError("You do not have access to this telemedicine view.");
+      } else {
+        setError("User profile not loaded yet.");
+      }
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -420,7 +451,15 @@ export default function TelemedicineDashboardPage({
       })
       .catch(() => setError("Failed to load active rooms. Please try again."))
       .finally(() => setLoading(false));
-  }, [userId, role]);
+  }, [
+    audience,
+    hasAccess,
+    isAuthenticated,
+    isAuthorizedRole,
+    role,
+    userId,
+    userRole,
+  ]);
 
   const applyRoomUiState = (room: ConsultationRoom): ConsultationRoom => {
     const ui = roomUiState[room.id];
@@ -486,6 +525,67 @@ export default function TelemedicineDashboardPage({
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-card border border-border rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Telemedicine</span>
+            {userRole && (
+              <span className="capitalize bg-secondary text-foreground px-2 py-0.5 rounded-full border border-border text-xs">
+                {userRole}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs font-medium">
+            {userRole === "doctor" ? (
+              <Link
+                to="/doctor/telemedicine"
+                className={`px-3 py-1.5 rounded-lg border transition-colors ${
+                  audience === "doctor"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Doctor View
+              </Link>
+            ) : (
+              <span className="px-3 py-1.5 rounded-lg border border-border text-muted-foreground opacity-60">
+                Doctor View
+              </span>
+            )}
+
+            {userRole === "patient" ? (
+              <Link
+                to="/patient/telemedicine"
+                className={`px-3 py-1.5 rounded-lg border transition-colors ${
+                  audience === "patient"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Patient View
+              </Link>
+            ) : (
+              <span className="px-3 py-1.5 rounded-lg border border-border text-muted-foreground opacity-60">
+                Patient View
+              </span>
+            )}
+          </div>
+        </div>
+
+        {!hasAccess && !loading && error && (
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">{error}</p>
+              <Link
+                to={fallbackPath}
+                className="text-xs underline mt-1 hover:no-underline inline-block"
+              >
+                Go to your telemedicine dashboard
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -521,7 +621,7 @@ export default function TelemedicineDashboardPage({
         )}
 
         {/* Error */}
-        {error && !loading && (
+        {hasAccess && error && !loading && (
           <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
             <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
             <div>
@@ -537,7 +637,7 @@ export default function TelemedicineDashboardPage({
         )}
 
         {/* Empty state */}
-        {!loading && !error && !hasAny && (
+        {hasAccess && !loading && !error && !hasAny && (
           <div className="flex flex-col items-center py-16 gap-3 text-center">
             <Video className="w-10 h-10 text-muted-foreground/40" />
             <p className="text-sm font-medium text-foreground">
@@ -552,7 +652,7 @@ export default function TelemedicineDashboardPage({
         )}
 
         {/* Room list */}
-        {!loading && !error && hasAny && (
+        {hasAccess && !loading && !error && hasAny && (
           <div className="space-y-3">
             {visibleRooms.map((room) =>
               role === "doctor" ? (

@@ -20,6 +20,8 @@ import PatientProfilePage from "../pages/PatientProfilePage";
 import DoctorSearchPage from "../pages/DoctorSearchPage";
 import SymptomCheckerPage from "../pages/SymptomCheckerPage";
 import ConsultationPage from "../pages/ConsultationPage";
+import TelemedicineDashboardPage from "../pages/TelemedicineDashboardPage";
+import TelemedicineRoomPage from "../pages/TelemedicineRoomPage";
 import DoctorDashboardPage from "../pages/DoctorDashboardPage";
 import DoctorProfilePage from "../pages/DoctorProfilePage";
 import DoctorAvailabilityPage from "../pages/DoctorAvailabilityPage";
@@ -110,6 +112,23 @@ function AppRoutes() {
         }
       />
 
+      <Route
+        path="/patient/telemedicine"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <TelemedicineDashboardPage audience="patient" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/patient/telemedicine/rooms/:roomId"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <TelemedicineRoomPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Doctor routes */}
       <Route
         path="/doctor/appointments/:id/consultation"
@@ -124,6 +143,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DoctorDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/telemedicine"
+        element={
+          <ProtectedRoute requiredRole="doctor">
+            <TelemedicineDashboardPage audience="doctor" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/telemedicine/rooms/:roomId"
+        element={
+          <ProtectedRoute requiredRole="doctor">
+            <TelemedicineRoomPage />
           </ProtectedRoute>
         }
       />
