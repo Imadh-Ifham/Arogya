@@ -178,6 +178,17 @@ export async function getRoomById(id: string): Promise<ConsultationRoomView> {
   return markRoomAsExpiredIfNeeded(room);
 }
 
+export async function getRoomByKey(
+  roomKey: string,
+): Promise<ConsultationRoomView> {
+  const room = await findConsultationRoomByKey(roomKey);
+  if (!room) {
+    throw new HttpError(404, "Room not found");
+  }
+
+  return markRoomAsExpiredIfNeeded(room);
+}
+
 export async function getRoomsByDoctorId(
   doctorId: string,
   options?: { activeOnly?: boolean },

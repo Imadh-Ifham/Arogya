@@ -109,34 +109,51 @@ function actorHeaders(
 
 // ─── Consultation endpoints ───────────────────────────────────────────────────
 
-export async function createConsultation(payload: {
-  appointmentId: string;
-  patientId: string;
-  doctorId: string;
-  startsAt: string;
-  expirationHours?: number;
-}): Promise<ConsultationView> {
-  const { data } = await api.post("/telemedicine/consultations", {
-    ...payload,
-    expirationHours: payload.expirationHours ?? 2,
-  });
+export async function createConsultation(
+  payload: {
+    appointmentId: string;
+    patientId: string;
+    doctorId: string;
+    startsAt: string;
+    expirationHours?: number;
+  },
+  actor?: TelemedicineActorContext,
+): Promise<ConsultationView> {
+  const { data } = await api.post(
+    "/telemedicine/consultations",
+    {
+      ...payload,
+      expirationHours: payload.expirationHours ?? 2,
+    },
+    {
+      headers: actorHeaders(actor),
+    },
+  );
   return (data.data ?? data) as ConsultationView;
 }
 
 export async function fetchDoctorConsultations(
   doctorId: string,
+  actor?: TelemedicineActorContext,
 ): Promise<ConsultationView[]> {
   const { data } = await api.get(
     `/telemedicine/consultations/doctor/${doctorId}`,
+    {
+      headers: actorHeaders(actor),
+    },
   );
   return (data.data ?? data) as ConsultationView[];
 }
 
 export async function fetchPatientConsultations(
   patientId: string,
+  actor?: TelemedicineActorContext,
 ): Promise<ConsultationView[]> {
   const { data } = await api.get(
     `/telemedicine/consultations/patient/${patientId}`,
+    {
+      headers: actorHeaders(actor),
+    },
   );
   return (data.data ?? data) as ConsultationView[];
 }
@@ -144,44 +161,59 @@ export async function fetchPatientConsultations(
 export async function fetchDoctorRooms(
   doctorId: string,
   activeOnly = true,
+  actor?: TelemedicineActorContext,
 ): Promise<ConsultationRoom[]> {
   const { data } = await api.get(`/telemedicine/rooms/doctor/${doctorId}`, {
     params: { activeOnly },
+    headers: actorHeaders(actor),
   });
   return (data.data ?? data) as ConsultationRoom[];
 }
 
-export async function fetchRoomById(roomId: string): Promise<ConsultationRoom> {
-  const { data } = await api.get(`/telemedicine/rooms/${roomId}`);
+export async function fetchRoomById(
+  roomId: string,
+  actor?: TelemedicineActorContext,
+): Promise<ConsultationRoom> {
+  const { data } = await api.get(`/telemedicine/rooms/${roomId}`, {
+    headers: actorHeaders(actor),
+  });
   return (data.data ?? data) as ConsultationRoom;
 }
 
 export async function fetchPatientRooms(
   patientId: string,
   activeOnly = true,
+  actor?: TelemedicineActorContext,
 ): Promise<ConsultationRoom[]> {
   const { data } = await api.get(`/telemedicine/rooms/patient/${patientId}`, {
     params: { activeOnly },
+    headers: actorHeaders(actor),
   });
   return (data.data ?? data) as ConsultationRoom[];
 }
 
 export async function fetchConsultationById(
   consultationId: string,
+  actor?: TelemedicineActorContext,
 ): Promise<ConsultationView> {
   const { data } = await api.get(
     `/telemedicine/consultations/${consultationId}`,
+    {
+      headers: actorHeaders(actor),
+    },
   );
   return (data.data ?? data) as ConsultationView;
 }
 
 export async function fetchConsultationByAppointment(
   appointmentId: string,
-  _role?: ChatRole,
-  _userId?: string,
+  actor?: TelemedicineActorContext,
 ): Promise<ConsultationView | null> {
   const { data } = await api.get(
     `/telemedicine/consultations/by-appointment/${appointmentId}`,
+    {
+      headers: actorHeaders(actor),
+    },
   );
   return (data.data ?? null) as ConsultationView | null;
 }
@@ -189,12 +221,14 @@ export async function fetchConsultationByAppointment(
 export async function updateConsultationStatus(
   id: string,
   status: ConsultationStatus,
-  callerRole?: string,
+  actor?: TelemedicineActorContext,
 ): Promise<ConsultationView> {
   const { data } = await api.patch(
     `/telemedicine/consultations/${id}/status`,
     { status },
-    callerRole ? { headers: { "x-caller-role": callerRole } } : undefined,
+    {
+      headers: actorHeaders(actor),
+    },
   );
   return (data.data ?? data) as ConsultationView;
 }

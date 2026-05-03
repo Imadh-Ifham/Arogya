@@ -23,7 +23,13 @@ import {
 
 function isDoctorInitiator(actor: string): boolean {
   const normalized = actor.toLowerCase();
-  return normalized === "doctor" || normalized === "doctor-service";
+  return (
+    normalized === "doctor" ||
+    normalized === "doctor-service" ||
+    normalized === "admin" ||
+    normalized === "service" ||
+    normalized === "appointment-service"
+  );
 }
 
 export async function createConsultationSession(

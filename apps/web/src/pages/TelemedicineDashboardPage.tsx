@@ -84,10 +84,10 @@ const DUMMY_DOCTOR_PROFILES: DoctorProfile[] = [
     nextInstruction: "Keep latest vitals handy before joining.",
   },
   {
-    name: "Dr. Kabir Menon",
+    name: "Dr. ThisuriD",
     specialty: "Cardiology",
     experience: "14 yrs exp",
-    languages: "EN, HI, ML",
+    languages: "EN, SIN, TAM",
     rating: "4.9",
     nextInstruction: "Share prior ECG reports if available.",
   },
@@ -409,6 +409,10 @@ export default function TelemedicineDashboardPage({
   const [error, setError] = useState<string | null>(null);
 
   const role: Audience = audience;
+  const actor =
+    userId && (userRole === "doctor" || userRole === "patient")
+      ? { id: userId, role: userRole }
+      : undefined;
   const fallbackPath = useMemo(() => {
     if (!userRole) return "/";
     if (userRole === "doctor") return "/doctor/telemedicine";
@@ -437,8 +441,8 @@ export default function TelemedicineDashboardPage({
 
     const fetch =
       role === "doctor"
-        ? fetchDoctorRooms(userId, true)
-        : fetchPatientRooms(userId, true);
+        ? fetchDoctorRooms(userId, true, actor)
+        : fetchPatientRooms(userId, true, actor);
 
     fetch
       .then((data) => {

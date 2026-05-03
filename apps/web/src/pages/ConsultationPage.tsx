@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import {
   fetchConsultationById,
@@ -16,7 +16,9 @@ import type {
   ClinicalNote,
   SoapNote,
   ConsultationStatus,
+  TelemedicineActorContext,
 } from "../modules/telemedicine/api/rest";
+import { useAppSelector } from "../app/hooks";
 import {
   getSocket,
   disconnectSocket,
@@ -184,11 +186,21 @@ export default function ConsultationPage() {
   const { id } = useParams<{ id: string }>();
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { user, accessToken } = useAppSelector((state) => state.auth);
 
   const role: "doctor" | "patient" = pathname.startsWith("/doctor/")
     ? "doctor"
     : "patient";
-  const userId = role === "doctor" ? "1234" : "5678";
+  const userRole = user?.role;
+  const userId = user?._id;
+  const isAuthenticated = Boolean(accessToken);
+  const isAuthorizedRole = userRole === "doctor" || userRole === "patient";
+  const hasAccess =
+    isAuthenticated && isAuthorizedRole && userRole === role && Boolean(userId);
+  const actor: TelemedicineActorContext | undefined = useMemo(
+    () => (hasAccess && userId ? { id: userId, role } : undefined),
+    [hasAccess, role, userId],
+  );
 
   // ── Page bootstrap state
   const [consultation, setConsultation] = useState<ConsultationView | null>(
@@ -226,11 +238,31 @@ export default function ConsultationPage() {
 
   // ─── Bootstrap ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!id || !userId) return;
+    if (!id) {
+      setPageError("Consultation id is missing.");
+      setLoading(false);
+      return;
+    }
+
+    if (!hasAccess || !userId || !actor) {
+      if (!isAuthenticated) {
+        setPageError("Please log in to view this consultation.");
+      } else if (!isAuthorizedRole) {
+        setPageError(
+          "Telemedicine is only available for patients and doctors.",
+        );
+      } else if (userRole !== role) {
+        setPageError("You do not have access to this telemedicine view.");
+      } else {
+        setPageError("User profile not loaded yet.");
+      }
+      setLoading(false);
+      return;
+    }
 
     (async () => {
       try {
-        const consult = await fetchConsultationById(id);
+        const consult = await fetchConsultationById(id, actor);
 
         if (
           (role === "doctor" && consult.doctorId !== userId) ||
@@ -242,11 +274,16 @@ export default function ConsultationPage() {
         }
 
         setConsultation(consult);
-        const history = await fetchChatMessages(consult.room.id);
+        const history = await fetchChatMessages(
+          consult.room.id,
+          undefined,
+          50,
+          actor,
+        );
         setMessages(history);
 
         if (consult.status === "ended" || role === "doctor") {
-          const noteList = await fetchClinicalNotes(consult.id);
+          const noteList = await fetchClinicalNotes(consult.id, actor);
           setNotes(noteList);
         }
       } catch (err: unknown) {
@@ -257,11 +294,20 @@ export default function ConsultationPage() {
         setLoading(false);
       }
     })();
-  }, [id, userId, role]);
+  }, [
+    actor,
+    hasAccess,
+    id,
+    isAuthenticated,
+    isAuthorizedRole,
+    role,
+    userId,
+    userRole,
+  ]);
 
   // ─── Socket.IO ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!consultation || !userId || !consentGiven) return;
+    if (!consultation || !userId || !consentGiven || !actor) return;
 
     const socket = getSocket(userId, role);
     socketRef.current = socket;
@@ -302,7 +348,7 @@ export default function ConsultationPage() {
       setReconnectAttempts(0);
       // Re-join room and pull any missed messages
       joinRoom();
-      fetchChatMessages(consultation.room.id)
+      fetchChatMessages(consultation.room.id, undefined, 50, actor)
         .then(setMessages)
         .catch(() => null);
     };
@@ -350,7 +396,7 @@ export default function ConsultationPage() {
       socket.off(CHAT_EVENTS.DELETED, onDeleted);
       socket.off(CHAT_EVENTS.SAFETY_FLAGGED, onSafetyFlag);
     };
-  }, [consultation, userId, role, consentGiven]);
+  }, [consultation, userId, role, consentGiven, actor]);
 
   // Only disconnect when the full workspace unmounts (consentGiven=true).
   // Skipping disconnect on consent-gate unmount prevents killing the socket
@@ -370,7 +416,7 @@ export default function ConsultationPage() {
   // ─── Actions ──────────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(async () => {
-    if (!chatInput.trim() || !consultation) return;
+    if (!chatInput.trim() || !consultation || !actor) return;
     const content = chatInput.trim();
     setChatInput("");
 
@@ -397,7 +443,12 @@ export default function ConsultationPage() {
     } else {
       // Fallback: REST (socket not connected or room not joined yet)
       try {
-        const result = await sendChatMessageRest(consultation.room.id, content);
+        const result = await sendChatMessageRest(
+          consultation.room.id,
+          content,
+          undefined,
+          actor,
+        );
         setMessages((prev) => {
           if (prev.find((m) => m.id === result.message.id)) return prev;
           return [...prev, result.message];
@@ -407,21 +458,22 @@ export default function ConsultationPage() {
         /* silent */
       }
     }
-  }, [chatInput, consultation]);
+  }, [chatInput, consultation, actor]);
 
   const handleStatusChange = useCallback(
     async (status: ConsultationStatus) => {
       if (!consultation) return;
       try {
+        if (!actor) return;
         const updated = await updateConsultationStatus(
           consultation.id,
           status,
-          role,
+          actor,
         );
         setConsultation(updated);
         if (status === "ended") {
           if (role === "doctor") {
-            const noteList = await fetchClinicalNotes(consultation.id);
+            const noteList = await fetchClinicalNotes(consultation.id, actor);
             setNotes(noteList);
           }
         }
@@ -429,11 +481,11 @@ export default function ConsultationPage() {
         /* silent */
       }
     },
-    [consultation, role],
+    [consultation, role, actor],
   );
 
   const handleSaveNote = useCallback(async () => {
-    if (!consultation) return;
+    if (!consultation || !actor) return;
     setSavingNote(true);
     setNoteError(null);
     try {
@@ -445,16 +497,21 @@ export default function ConsultationPage() {
             soap: noteSoap,
             patientSummary: notePatientSummary,
           },
+          actor,
         );
         setNotes((prev) =>
           prev.map((n) => (n.id === editingNoteId ? updated : n)),
         );
       } else {
-        const created = await createClinicalNote(consultation.id, {
-          soap: noteSoap,
-          patientSummary: notePatientSummary,
-          status: "draft",
-        });
+        const created = await createClinicalNote(
+          consultation.id,
+          {
+            soap: noteSoap,
+            patientSummary: notePatientSummary,
+            status: "draft",
+          },
+          actor,
+        );
         setNotes((prev) => [...prev, created]);
       }
       setNoteSoap(EMPTY_SOAP);
@@ -465,34 +522,43 @@ export default function ConsultationPage() {
     } finally {
       setSavingNote(false);
     }
-  }, [consultation, editingNoteId, noteSoap, notePatientSummary]);
+  }, [consultation, editingNoteId, noteSoap, notePatientSummary, actor]);
 
   const handleFinaliseNote = useCallback(
     async (noteId: string) => {
-      if (!consultation) return;
+      if (!consultation || !actor) return;
       try {
-        const updated = await updateClinicalNote(consultation.id, noteId, {
-          status: "final",
-        });
+        const updated = await updateClinicalNote(
+          consultation.id,
+          noteId,
+          {
+            status: "final",
+          },
+          actor,
+        );
         setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)));
       } catch {
         /* silent */
       }
     },
-    [consultation],
+    [consultation, actor],
   );
 
   const handleReleaseNote = useCallback(
     async (noteId: string) => {
-      if (!consultation) return;
+      if (!consultation || !actor) return;
       try {
-        const updated = await releaseClinicalNote(consultation.id, noteId);
+        const updated = await releaseClinicalNote(
+          consultation.id,
+          noteId,
+          actor,
+        );
         setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)));
       } catch {
         /* silent */
       }
     },
-    [consultation],
+    [consultation, actor],
   );
 
   // ─── Early returns ────────────────────────────────────────────────────────

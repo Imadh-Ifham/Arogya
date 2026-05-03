@@ -21,19 +21,16 @@ import {
   type TelemedicineActorContext,
 } from "../modules/telemedicine/api/rest";
 import Navbar from "../components/Navbar";
-import {
-  Activity,
-  CalendarClock,
-  ClipboardPlus,
-  FileText,
-  MessageSquare,
-  Play,
-  Send,
-  Stethoscope,
-  User,
-  Video,
-  XCircle,
-} from "lucide-react";
+import { useAppSelector } from "../app/hooks";
+import { Activity, CalendarClock } from "lucide-react";
+import ChatPanel from "../modules/telemedicine/components/chat/ChatPanel";
+import ClinicalNotesPanel from "../modules/telemedicine/components/notes/ClinicalNotesPanel";
+import DoctorProfileCard from "../modules/telemedicine/components/Profile/DoctorProfileCard";
+import PatientRecordCard from "../modules/telemedicine/components/Profile/PatientRecordCard";
+import CreateConsultationModal from "../modules/telemedicine/components/session/CreateConsultationModal";
+import SessionControls from "../modules/telemedicine/components/session/SessionControls";
+import SessionList from "../modules/telemedicine/components/session/SessionList";
+import VideoPanel from "../modules/telemedicine/components/video/VideoPanel";
 
 type Role = "doctor" | "patient";
 
@@ -154,10 +151,25 @@ function RoomShell({ children }: { children: React.ReactNode }) {
 export default function TelemedicineRoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const { pathname } = useLocation();
+  const { user, accessToken } = useAppSelector((state) => state.auth);
 
   const role: Role = pathname.startsWith("/doctor/") ? "doctor" : "patient";
-  const userId = role === "doctor" ? "1234" : "5678";
-  const actor: TelemedicineActorContext = { id: userId, role };
+  const userRole = user?.role;
+  const userId = user?._id;
+  const isAuthenticated = Boolean(accessToken);
+  const isAuthorizedRole = userRole === "doctor" || userRole === "patient";
+  const hasAccess =
+    isAuthenticated && isAuthorizedRole && userRole === role && Boolean(userId);
+  const actor: TelemedicineActorContext | undefined = useMemo(
+    () => (hasAccess && userId ? { id: userId, role } : undefined),
+    [hasAccess, role, userId],
+  );
+  const fallbackPath = useMemo(() => {
+    if (!userRole) return "/";
+    if (userRole === "doctor") return "/doctor/telemedicine";
+    if (userRole === "patient") return "/patient/telemedicine";
+    return "/";
+  }, [userRole]);
 
   const [room, setRoom] = useState<ConsultationRoom | null>(null);
   const [consultations, setConsultations] = useState<ConsultationView[]>([]);
@@ -177,6 +189,7 @@ export default function TelemedicineRoomPage() {
   const [creatingConsultation, setCreatingConsultation] = useState(false);
   const [createModalError, setCreateModalError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const chatUserId = actor?.id ?? "";
 
   const selectedConsultation = useMemo(
     () => consultations.find((c) => c.id === selectedConsultationId) ?? null,
@@ -188,15 +201,15 @@ export default function TelemedicineRoomPage() {
     (role === "doctor" || selectedConsultation.status === "active");
 
   async function reloadRoomData() {
-    if (!roomId) return;
+    if (!roomId || !userId || !actor) return;
 
-    const loadedRoom = await fetchRoomById(roomId);
+    const loadedRoom = await fetchRoomById(roomId, actor);
     setRoom(loadedRoom);
 
     const allConsultations =
       role === "doctor"
-        ? await fetchDoctorConsultations(userId)
-        : await fetchPatientConsultations(userId);
+        ? await fetchDoctorConsultations(userId, actor)
+        : await fetchPatientConsultations(userId, actor);
 
     const roomConsultations = allConsultations
       .filter((c) => c.room.id === roomId)
@@ -218,16 +231,39 @@ export default function TelemedicineRoomPage() {
       return;
     }
 
+    if (!hasAccess || !userId || !actor) {
+      if (!isAuthenticated) {
+        setError("Please log in to view this room.");
+      } else if (!isAuthorizedRole) {
+        setError("Telemedicine is only available for patients and doctors.");
+      } else if (userRole !== role) {
+        setError("You do not have access to this telemedicine view.");
+      } else {
+        setError("User profile not loaded yet.");
+      }
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     reloadRoomData()
       .catch(() => setError("Failed to load room workspace."))
       .finally(() => setLoading(false));
-  }, [roomId]);
+  }, [
+    roomId,
+    actor,
+    hasAccess,
+    isAuthenticated,
+    isAuthorizedRole,
+    role,
+    userId,
+    userRole,
+  ]);
 
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || !actor) return;
 
     fetchChatMessages(roomId, undefined, 50, actor)
       .then(setMessages)
@@ -240,10 +276,10 @@ export default function TelemedicineRoomPage() {
     }, 5000);
 
     return () => window.clearInterval(timer);
-  }, [roomId, userId, role]);
+  }, [roomId, actor]);
 
   useEffect(() => {
-    if (!selectedConsultationId) {
+    if (!selectedConsultationId || !actor) {
       setNotes([]);
       return;
     }
@@ -251,14 +287,14 @@ export default function TelemedicineRoomPage() {
     fetchClinicalNotes(selectedConsultationId, actor)
       .then(setNotes)
       .catch(() => setNotes([]));
-  }, [selectedConsultationId, userId, role]);
+  }, [selectedConsultationId, actor]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   async function handleSendMessage() {
-    if (!roomId || !chatInput.trim()) return;
+    if (!roomId || !chatInput.trim() || !actor) return;
 
     const result = await sendChatMessageRest(
       roomId,
@@ -271,12 +307,14 @@ export default function TelemedicineRoomPage() {
   }
 
   async function handleStartConsultation(id: string) {
-    const updated = await updateConsultationStatus(id, "active", role);
+    if (!actor) return;
+    const updated = await updateConsultationStatus(id, "active", actor);
     setConsultations((prev) => prev.map((c) => (c.id === id ? updated : c)));
   }
 
   async function handleEndConsultation(id: string) {
-    const updated = await updateConsultationStatus(id, "ended", role);
+    if (!actor) return;
+    const updated = await updateConsultationStatus(id, "ended", actor);
     setConsultations((prev) => prev.map((c) => (c.id === id ? updated : c)));
   }
 
@@ -295,7 +333,7 @@ export default function TelemedicineRoomPage() {
   }
 
   async function handleCreateConsultation() {
-    if (!room) return;
+    if (!room || !actor) return;
 
     if (!createDate || !createTime) {
       setCreateModalError("Please select both date and time.");
@@ -318,13 +356,16 @@ export default function TelemedicineRoomPage() {
 
     const appointmentId = `demo-${Date.now()}`;
     try {
-      const created = await createConsultation({
-        appointmentId,
-        doctorId: room.doctorId,
-        patientId: room.patientId,
-        startsAt: startsAt.toISOString(),
-        expirationHours: 2,
-      });
+      const created = await createConsultation(
+        {
+          appointmentId,
+          doctorId: room.doctorId,
+          patientId: room.patientId,
+          startsAt: startsAt.toISOString(),
+          expirationHours: 2,
+        },
+        actor,
+      );
 
       setConsultations((prev) =>
         [...prev, created].sort(
@@ -342,7 +383,7 @@ export default function TelemedicineRoomPage() {
   }
 
   async function handleSaveNote() {
-    if (!selectedConsultationId || role !== "doctor") return;
+    if (!selectedConsultationId || role !== "doctor" || !actor) return;
 
     const created = await createClinicalNote(
       selectedConsultationId,
@@ -360,7 +401,7 @@ export default function TelemedicineRoomPage() {
   }
 
   async function handleFinaliseAndRelease(noteId: string) {
-    if (!selectedConsultationId || role !== "doctor") return;
+    if (!selectedConsultationId || role !== "doctor" || !actor) return;
 
     const finalised = await updateClinicalNote(
       selectedConsultationId,
@@ -399,11 +440,7 @@ export default function TelemedicineRoomPage() {
           <div className="text-center space-y-3">
             <p className="text-red-600">{error ?? "Room not found."}</p>
             <Link
-              to={
-                role === "doctor"
-                  ? "/doctor/telemedicine"
-                  : "/patient/telemedicine"
-              }
+              to={fallbackPath}
               className="inline-flex text-sm px-3 py-2 rounded-lg border border-border hover:bg-secondary"
             >
               Back to rooms
@@ -432,257 +469,44 @@ export default function TelemedicineRoomPage() {
 
         <div className="grid lg:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[360px_minmax(0,1fr)] gap-3 h-full min-h-0">
           <aside className="h-full min-h-0 flex flex-col gap-3 overflow-hidden">
-            <section className="bg-card border border-border rounded-xl p-3 flex flex-col min-h-0 flex-[1.15]">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
-                  <Video className="w-4 h-4" /> Sessions
-                </h2>
-                {role === "doctor" && (
-                  <button
-                    type="button"
-                    onClick={openCreateConsultationModal}
-                    className="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-secondary inline-flex items-center gap-1"
-                  >
-                    <ClipboardPlus className="w-3.5 h-3.5" /> Add
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-1 mt-3">
-                {consultations.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No consultations mapped to this room yet.
-                  </p>
-                )}
-                {consultations.map((session) => (
-                  <button
-                    key={session.id}
-                    type="button"
-                    onClick={() => setSelectedConsultationId(session.id)}
-                    className={`w-full text-left border rounded-xl p-3 transition-colors ${
-                      selectedConsultationId === session.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-secondary"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-foreground">
-                        #{session.id.slice(-6)}
-                      </span>
-                      <span
-                        className={`text-[11px] px-2 py-0.5 rounded-full border ${statusPill(session.status)}`}
-                      >
-                        {session.status}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      {formatDate(session.startsAt)}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </section>
+            <SessionList
+              consultations={consultations}
+              selectedConsultationId={selectedConsultationId}
+              onSelect={setSelectedConsultationId}
+              onAdd={openCreateConsultationModal}
+              role={role}
+              statusPill={statusPill}
+              formatDate={formatDate}
+            />
 
             <section className="bg-card border border-border rounded-xl p-3 flex-1 min-h-0 overflow-y-auto">
               {role === "doctor" ? (
                 <>
-                  <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
-                    <User className="w-4 h-4" /> Patient Record
-                  </h2>
-                  <div className="text-xs space-y-1.5 rounded-xl border border-border p-3 bg-background/70 mt-3">
-                    <p>
-                      <span className="text-muted-foreground">Patient ID:</span>{" "}
-                      {patientRecord.displayId}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Age band:</span>{" "}
-                      {patientRecord.ageBand}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">
-                        Blood group:
-                      </span>{" "}
-                      {patientRecord.bloodGroup}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Allergies:</span>{" "}
-                      {patientRecord.allergies}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Chronic:</span>{" "}
-                      {patientRecord.chronic}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Triage:</span>{" "}
-                      {patientRecord.triage}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-border p-3 bg-background/70 space-y-2 mt-3">
-                    <h3 className="text-xs font-semibold text-foreground inline-flex items-center gap-1">
-                      <FileText className="w-3.5 h-3.5" /> Clinical Notes
-                    </h3>
-                    {!selectedConsultation && (
-                      <p className="text-xs text-muted-foreground">
-                        Select consultation to manage notes.
-                      </p>
-                    )}
-                    {selectedConsultation && (
-                      <>
-                        <textarea
-                          rows={2}
-                          value={soap.subjective.chiefComplaint}
-                          onChange={(e) =>
-                            setSoap((prev) => ({
-                              ...prev,
-                              subjective: {
-                                ...prev.subjective,
-                                chiefComplaint: e.target.value,
-                              },
-                            }))
-                          }
-                          placeholder="Chief complaint"
-                          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-input-background"
-                        />
-                        <textarea
-                          rows={2}
-                          value={soap.assessment.diagnosis}
-                          onChange={(e) =>
-                            setSoap((prev) => ({
-                              ...prev,
-                              assessment: {
-                                ...prev.assessment,
-                                diagnosis: e.target.value,
-                              },
-                            }))
-                          }
-                          placeholder="Diagnosis"
-                          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-input-background"
-                        />
-                        <textarea
-                          rows={2}
-                          value={soap.plan.treatmentPlan}
-                          onChange={(e) =>
-                            setSoap((prev) => ({
-                              ...prev,
-                              plan: {
-                                ...prev.plan,
-                                treatmentPlan: e.target.value,
-                              },
-                            }))
-                          }
-                          placeholder="Treatment plan"
-                          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-input-background"
-                        />
-                        <input
-                          value={noteSummary}
-                          onChange={(e) => setNoteSummary(e.target.value)}
-                          placeholder="Patient summary"
-                          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-input-background"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void handleSaveNote()}
-                          className="w-full text-xs px-2.5 py-2 rounded-lg bg-primary text-primary-foreground"
-                        >
-                          Save Draft Note
-                        </button>
-                        <div className="space-y-2 max-h-44 overflow-y-auto">
-                          {notes.map((n) => (
-                            <div
-                              key={n.id}
-                              className="border border-border rounded-lg p-2"
-                            >
-                              <p className="text-[11px] text-muted-foreground">
-                                {n.status} • {formatDate(n.createdAt)}
-                              </p>
-                              <p className="text-xs text-foreground mt-0.5">
-                                {n.soap.assessment.diagnosis || "No diagnosis"}
-                              </p>
-                              {n.status !== "final" && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void handleFinaliseAndRelease(n.id)
-                                  }
-                                  className="mt-1.5 text-[11px] px-2 py-1 rounded border border-border hover:bg-secondary"
-                                >
-                                  Finalise + Release
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <PatientRecordCard record={patientRecord} />
+                  <ClinicalNotesPanel
+                    variant="doctor"
+                    selectedConsultation={selectedConsultation}
+                    notes={notes}
+                    soap={soap}
+                    noteSummary={noteSummary}
+                    onSoapChange={setSoap}
+                    onNoteSummaryChange={setNoteSummary}
+                    onSaveDraft={() => void handleSaveNote()}
+                    onFinalise={(noteId) =>
+                      void handleFinaliseAndRelease(noteId)
+                    }
+                    formatDate={formatDate}
+                  />
                 </>
               ) : (
                 <>
-                  <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
-                    <Stethoscope className="w-4 h-4" /> Doctor Profile
-                  </h2>
-                  <div className="text-xs space-y-1.5 rounded-xl border border-border p-3 bg-background/70 mt-3">
-                    <p>
-                      <span className="text-muted-foreground">Doctor:</span>{" "}
-                      {doctorProfile.name}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Code:</span>{" "}
-                      {doctorProfile.displayId}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Specialty:</span>{" "}
-                      {doctorProfile.specialty}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">
-                        Qualification:
-                      </span>{" "}
-                      {doctorProfile.qualification}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Languages:</span>{" "}
-                      {doctorProfile.languages}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Care tip:</span>{" "}
-                      {doctorProfile.careTip}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-border p-3 bg-background/70 space-y-2 mt-3">
-                    <h3 className="text-xs font-semibold text-foreground inline-flex items-center gap-1">
-                      <FileText className="w-3.5 h-3.5" /> My Released Notes
-                    </h3>
-                    {!selectedConsultation && (
-                      <p className="text-xs text-muted-foreground">
-                        Select consultation to view notes.
-                      </p>
-                    )}
-                    {selectedConsultation && (
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {notes.length === 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            No released notes yet.
-                          </p>
-                        )}
-                        {notes.map((n) => (
-                          <div
-                            key={n.id}
-                            className="border border-border rounded-lg p-2"
-                          >
-                            <p className="text-[11px] text-muted-foreground">
-                              {formatDate(n.createdAt)}
-                            </p>
-                            <p className="text-xs text-foreground mt-0.5">
-                              {n.patientSummary ?? n.soap.plan.treatmentPlan}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <DoctorProfileCard profile={doctorProfile} />
+                  <ClinicalNotesPanel
+                    variant="patient"
+                    selectedConsultation={selectedConsultation}
+                    notes={notes}
+                    formatDate={formatDate}
+                  />
                 </>
               )}
             </section>
@@ -693,192 +517,52 @@ export default function TelemedicineRoomPage() {
               <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
                 <Activity className="w-4 h-4" /> Consultation Workspace
               </h2>
-              {selectedConsultation && role === "doctor" && (
-                <div className="flex gap-2">
-                  {selectedConsultation.status === "scheduled" && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void handleStartConsultation(selectedConsultation.id)
-                      }
-                      className="text-xs px-2.5 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 inline-flex items-center gap-1"
-                    >
-                      <Play className="w-3.5 h-3.5" /> Start
-                    </button>
-                  )}
-                  {selectedConsultation.status === "active" && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void handleEndConsultation(selectedConsultation.id)
-                      }
-                      className="text-xs px-2.5 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 inline-flex items-center gap-1"
-                    >
-                      <XCircle className="w-3.5 h-3.5" /> End
-                    </button>
-                  )}
-                </div>
-              )}
+              <SessionControls
+                selectedConsultation={selectedConsultation}
+                role={role}
+                onStart={(id) => void handleStartConsultation(id)}
+                onEnd={(id) => void handleEndConsultation(id)}
+              />
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
-              <div className="border border-border rounded-xl overflow-hidden bg-background flex-1 min-h-0">
-                {!selectedConsultation && (
-                  <div className="h-full grid place-items-center text-sm text-muted-foreground">
-                    Pick a consultation to open workspace view.
-                  </div>
-                )}
-
-                {selectedConsultation && !canOpenVideo && (
-                  <div className="h-full grid place-items-center text-sm text-muted-foreground px-6 text-center">
-                    Patient can join only after doctor starts the consultation.
-                  </div>
-                )}
-
-                {selectedConsultation && canOpenVideo && (
-                  <iframe
-                    src={room.jitsiRoomUrl}
-                    className="w-full h-full border-0"
-                    allow="camera; microphone; fullscreen; display-capture; autoplay"
-                    title="Embedded telemedicine call"
-                  />
-                )}
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 overflow-hidden">
+              {/* Video Section */}
+              <div className="border border-border rounded-xl overflow-hidden bg-background min-h-0">
+                <VideoPanel
+                  selectedConsultation={selectedConsultation}
+                  canOpenVideo={canOpenVideo}
+                  roomUrl={room.jitsiRoomUrl}
+                />
               </div>
 
-              <div className="border border-border rounded-xl bg-background p-3 flex flex-col h-65 shrink-0">
-                <h3 className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5 mb-2">
-                  <MessageSquare className="w-4 h-4" /> Chat
-                </h3>
-
-                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 pb-2">
-                  {messages.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      No messages yet.
-                    </p>
-                  )}
-                  {messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`flex ${m.senderId === userId ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[82%] rounded-xl border px-3 py-2 ${
-                          m.senderId === userId
-                            ? "bg-primary/10 border-primary/20"
-                            : "bg-card border-border"
-                        }`}
-                      >
-                        <p className="text-[11px] text-muted-foreground">
-                          {m.senderRole === "doctor" ? "Doctor" : "Patient"} •{" "}
-                          {formatDate(m.createdAt)}
-                        </p>
-                        <p className="text-sm text-foreground mt-0.5 whitespace-pre-wrap break-all">
-                          {m.content}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-
-                <div className="pt-2 border-t border-border mt-1">
-                  <div className="flex gap-2">
-                    <input
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void handleSendMessage();
-                        }
-                      }}
-                      placeholder="Type a message"
-                      className="flex-1 border border-border rounded-lg px-3 py-2 text-sm bg-input-background"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void handleSendMessage()}
-                      disabled={!chatInput.trim()}
-                      className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm inline-flex items-center gap-1 disabled:opacity-50"
-                    >
-                      <Send className="w-4 h-4" /> Send
-                    </button>
-                  </div>
-                </div>
+              {/* Chat Section */}
+              <div className="min-h-0 flex flex-col border border-border rounded-xl overflow-hidden">
+                <ChatPanel
+                  messages={messages}
+                  userId={chatUserId}
+                  chatInput={chatInput}
+                  onChatInputChange={setChatInput}
+                  onSend={() => void handleSendMessage()}
+                  formatDate={formatDate}
+                  chatEndRef={chatEndRef}
+                />
               </div>
             </div>
           </section>
         </div>
       </div>
-
-      {createModalOpen && role === "doctor" && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] grid place-items-center p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-card shadow-xl">
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">
-                Schedule New Consultation
-              </h3>
-              <button
-                type="button"
-                onClick={closeCreateConsultationModal}
-                disabled={creatingConsultation}
-                className="text-xs px-2 py-1 rounded border border-border hover:bg-secondary disabled:opacity-50"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  value={createDate}
-                  onChange={(e) => setCreateDate(e.target.value)}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-input-background"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Time
-                </label>
-                <input
-                  type="time"
-                  value={createTime}
-                  onChange={(e) => setCreateTime(e.target.value)}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-input-background"
-                />
-              </div>
-
-              {createModalError && (
-                <p className="text-xs text-red-600">{createModalError}</p>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={closeCreateConsultationModal}
-                  disabled={creatingConsultation}
-                  className="text-xs px-3 py-2 rounded-lg border border-border hover:bg-secondary disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleCreateConsultation()}
-                  disabled={creatingConsultation}
-                  className="text-xs px-3 py-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
-                >
-                  {creatingConsultation ? "Creating..." : "Create Consultation"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreateConsultationModal
+        open={createModalOpen}
+        role={role}
+        createDate={createDate}
+        createTime={createTime}
+        creatingConsultation={creatingConsultation}
+        createModalError={createModalError}
+        onDateChange={setCreateDate}
+        onTimeChange={setCreateTime}
+        onClose={closeCreateConsultationModal}
+        onCreate={() => void handleCreateConsultation()}
+      />
     </RoomShell>
   );
 }
